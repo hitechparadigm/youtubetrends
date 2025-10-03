@@ -20,6 +20,7 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
   public readonly trendDetectorFunction: nodejs.NodejsFunction;
   public readonly contentAnalyzerFunction: nodejs.NodejsFunction;
   public readonly videoGeneratorFunction: nodejs.NodejsFunction;
+  public readonly videoProcessorFunction: nodejs.NodejsFunction;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -268,6 +269,39 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       },
     });
 
+    // IAM role for MediaConvert
+    const mediaConvertRole = new iam.Role(this, 'MediaConvertRole', {
+      roleName: 'YoutubeAutomationMediaConvertRole',
+      assumedBy: new iam.ServicePrincipal('mediaconvert.amazonaws.com'),
+      inlinePolicies: {
+        MediaConvertPolicy: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                's3:GetObject',
+                's3:PutObject',
+                's3:ListBucket',
+              ],
+              resources: [
+                this.videoBucket.bucketArn,
+                `${this.videoBucket.bucketArn}/*`,
+              ],
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'logs:CreateLogGroup',
+                'logs:CreateLogStream',
+                'logs:PutLogEvents',
+              ],
+              resources: ['*'],
+            }),
+          ],
+        }),
+      },
+    });
+
     // Lambda Functions
     
     // Trend Detector Function
@@ -312,6 +346,22 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       memorySize: 2048,
       environment: {
         VIDEO_BUCKET: this.videoBucket.bucketName
+      },
+      role: lambdaExecutionRole
+    });
+
+    // Video Processor Function
+    this.videoProcessorFunction = new nodejs.NodejsFunction(this, 'VideoProcessorFunction', {
+      functionName: 'youtube-automation-video-processor',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: 'lambda/video-processor/index.ts',
+      handler: 'handler',
+      timeout: cdk.Duration.minutes(15), // MediaConvert jobs can take time
+      memorySize: 1024,
+      environment: {
+        VIDEO_BUCKET: this.videoBucket.bucketName,
+        MEDIACONVERT_ROLE_ARN: mediaConvertRole.roleArn,
+        MEDIACONVERT_QUEUE_ARN: `arn:aws:mediaconvert:${this.region}:${this.account}:queues/Default`
       },
       role: lambdaExecutionRole
     });
@@ -375,6 +425,11 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'VideoGeneratorFunctionArn', {
       value: this.videoGeneratorFunction.functionArn,
       description: 'ARN of the video generator Lambda function',
+    });
+
+    new cdk.CfnOutput(this, 'VideoProcessorFunctionArn', {
+      value: this.videoProcessorFunction.functionArn,
+      description: 'ARN of the video processor Lambda function',
     });
   }
 }

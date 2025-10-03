@@ -38,7 +38,6 @@
 
   - [x] 3.2 Build trend detection functionality
 
-
     - Implement trending video search with category filtering
     - Add engagement metrics calculation and trend ranking
     - Create data transformation layer for YouTube API responses
@@ -52,14 +51,14 @@
 
 - [ ] 4. Develop Lambda functions for core pipeline
 
-  - [ ] 4.1 Create trend detector Lambda function
-
+  - [x] 4.1 Create trend detector Lambda function
 
 
     - Implement trend detection logic with YouTube API integration
     - Add CloudWatch logging and custom metrics publishing
     - Configure function timeout, memory, and environment variables
     - _Requirements: 1.1, 1.2, 5.1_
+
 
   - [ ] 4.2 Implement content analysis Lambda function
 
@@ -68,18 +67,23 @@
     - Add keyword extraction and SEO optimization
     - _Requirements: 1.4, 2.1, 3.2_
 
+
   - [ ] 4.3 Build video generator Lambda function
 
     - Integrate with Amazon Bedrock Nova Reel API
     - Implement asynchronous video generation workflow
     - Add S3 integration for video storage and retrieval
+
     - _Requirements: 2.2, 2.3, 2.5_
 
-  - [ ] 4.4 Create video processor Lambda function
+  - [x] 4.4 Create video processor Lambda function
+
 
     - Integrate with AWS Elemental MediaConvert
     - Implement video optimization for YouTube specifications
     - Add metadata extraction and validation
+
+
     - _Requirements: 3.1, 3.2_
 
   - [ ] 4.5 Implement YouTube uploader Lambda function
@@ -89,7 +93,8 @@
     - Implement performance tracking and analytics storage
     - _Requirements: 3.3, 3.4, 3.5, 5.2_
 
-  - [ ]\* 4.6 Write unit tests for all Lambda functions
+  - [ ] 4.6 Write unit tests for all Lambda functions
+
     - Create comprehensive test suites using pytest and moto
     - Test error scenarios and retry mechanisms
     - Mock external service dependencies
@@ -111,7 +116,8 @@
     - Implement dead letter queues for failed executions
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-  - [ ]\* 5.3 Create integration tests for Step Functions workflow
+  - [ ] 5.3 Create integration tests for Step Functions workflow
+
     - Test complete pipeline execution with mock data
     - Verify error handling and retry scenarios
     - Test parallel execution capabilities
@@ -133,7 +139,8 @@
     - Add S3 event triggers for video processing pipeline
     - _Requirements: 4.4, 4.5_
 
-  - [ ]\* 6.3 Test scheduling and event processing
+  - [ ] 6.3 Test scheduling and event processing
+
     - Verify scheduled executions trigger correctly
     - Test event-driven workflow transitions
     - Validate queue management and priority handling
@@ -162,7 +169,8 @@
     - Set up log aggregation and search capabilities
     - _Requirements: 5.1, 6.4_
 
-  - [ ]\* 7.4 Create monitoring and alerting tests
+  - [ ] 7.4 Create monitoring and alerting tests
+
     - Test custom metrics publishing and collection
     - Verify alert triggers and notification delivery
     - Test dashboard functionality and data accuracy
@@ -184,7 +192,8 @@
     - Add resource usage optimization algorithms
     - _Requirements: 7.4, 7.5_
 
-  - [ ]\* 8.3 Create cost optimization tests
+  - [ ] 8.3 Create cost optimization tests
+
     - Test budget enforcement and throttling mechanisms
     - Verify cost calculations and tracking accuracy
     - Test resource scaling under different load conditions
