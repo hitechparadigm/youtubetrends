@@ -14,8 +14,8 @@ import { TrendDetectionService, TrendDetectionConfig } from './src/services/tren
 import { YouTubeApiClient } from './src/services/youtube-api-client';
 import { TrendRepository } from './src/repositories/trend-repository';
 
-// Demo configuration - works without YouTube API credentials for basic testing
-const DEMO_MODE = !process.env.YOUTUBE_API_ENABLED;
+// Demo configuration - enable live mode if credentials are available
+const DEMO_MODE = process.env.DEMO_MODE === 'true' || process.argv.includes('--demo-only');
 
 class YouTubeTrendsDemo {
   private trendService: TrendDetectionService;
@@ -218,8 +218,18 @@ class YouTubeTrendsDemo {
 
   private async runLiveAnalysis(): Promise<void> {
     console.log('🌐 Connecting to YouTube Data API...');
+    console.log('🔑 Loading credentials from AWS Secrets Manager...');
     
     try {
+      // Initialize the YouTube client
+      const youtubeClient = new YouTubeApiClient({
+        secretName: 'youtube-automation/credentials',
+        region: process.env.AWS_REGION || 'us-east-1'
+      });
+      
+      await youtubeClient.initialize();
+      console.log('✅ YouTube API credentials loaded successfully');
+      
       const results = await this.trendService.detectTrends(this.topic, {
         includeKeywordAnalysis: true,
         includeCompetitorAnalysis: true,
