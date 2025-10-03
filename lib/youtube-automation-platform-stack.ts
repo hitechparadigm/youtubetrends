@@ -8,6 +8,9 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as stepfunctions from 'aws-cdk-lib/aws-stepfunctions';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as fs from 'fs';
 import { Construct } from 'constructs';
 
 export class YoutubeAutomationPlatformStack extends cdk.Stack {
@@ -22,6 +25,7 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
   public readonly videoGeneratorFunction: nodejs.NodejsFunction;
   public readonly videoProcessorFunction: nodejs.NodejsFunction;
   public readonly youtubeUploaderFunction: nodejs.NodejsFunction;
+  public readonly automationStateMachine: stepfunctions.StateMachine;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -384,6 +388,29 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       role: lambdaExecutionRole
     });
 
+    // Step Functions State Machine for YouTube Automation Workflow
+    const workflowDefinition = fs.readFileSync('stepfunctions/youtube-automation-workflow.json', 'utf8')
+      .replace(/\$\{TrendDetectorFunctionArn\}/g, this.trendDetectorFunction.functionArn)
+      .replace(/\$\{ContentAnalyzerFunctionArn\}/g, this.contentAnalyzerFunction.functionArn)
+      .replace(/\$\{VideoGeneratorFunctionArn\}/g, this.videoGeneratorFunction.functionArn)
+      .replace(/\$\{VideoProcessorFunctionArn\}/g, this.videoProcessorFunction.functionArn)
+      .replace(/\$\{YouTubeUploaderFunctionArn\}/g, this.youtubeUploaderFunction.functionArn)
+      .replace(/\$\{NotificationTopicArn\}/g, this.notificationTopic.topicArn);
+
+    this.automationStateMachine = new stepfunctions.StateMachine(this, 'YouTubeAutomationStateMachine', {
+      stateMachineName: 'youtube-automation-workflow',
+      definitionBody: stepfunctions.DefinitionBody.fromString(workflowDefinition),
+      role: stepFunctionsRole,
+      timeout: cdk.Duration.hours(2), // Maximum workflow execution time
+      logs: {
+        destination: new logs.LogGroup(this, 'StateMachineLogGroup', {
+          logGroupName: '/aws/stepfunctions/youtube-automation-workflow'
+        }),
+        level: stepfunctions.LogLevel.ALL,
+        includeExecutionData: true
+      }
+    });
+
     // CloudWatch dashboard for monitoring (placeholder for future implementation)
     // const dashboard = new cloudwatch.Dashboard(this, 'YoutubeAutomationDashboard', {
     //   dashboardName: 'YouTube-Automation-Platform',
@@ -453,6 +480,11 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'YouTubeUploaderFunctionArn', {
       value: this.youtubeUploaderFunction.functionArn,
       description: 'ARN of the YouTube uploader Lambda function',
+    });
+
+    new cdk.CfnOutput(this, 'AutomationStateMachineArn', {
+      value: this.automationStateMachine.stateMachineArn,
+      description: 'ARN of the YouTube automation Step Functions state machine',
     });
   }
 }

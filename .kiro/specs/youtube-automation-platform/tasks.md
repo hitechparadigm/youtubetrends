@@ -53,12 +53,10 @@
 
   - [x] 4.1 Create trend detector Lambda function
 
-
     - Implement trend detection logic with YouTube API integration
     - Add CloudWatch logging and custom metrics publishing
     - Configure function timeout, memory, and environment variables
     - _Requirements: 1.1, 1.2, 5.1_
-
 
   - [ ] 4.2 Implement content analysis Lambda function
 
@@ -66,7 +64,6 @@
     - Create script generation logic based on trending topics
     - Add keyword extraction and SEO optimization
     - _Requirements: 1.4, 2.1, 3.2_
-
 
   - [ ] 4.3 Build video generator Lambda function
 
@@ -78,25 +75,21 @@
 
   - [x] 4.4 Create video processor Lambda function
 
-
-
     - Integrate with AWS Elemental MediaConvert
     - Implement video optimization for YouTube specifications
     - Add metadata extraction and validation
 
-
     - _Requirements: 3.1, 3.2_
 
-
   - [x] 4.5 Implement YouTube uploader Lambda function
-
 
     - Build video upload functionality with metadata generation
     - Add retry logic for failed uploads with different strategies
     - Implement performance tracking and analytics storage
     - _Requirements: 3.3, 3.4, 3.5, 5.2_
 
-  - [ ] 4.6 Write unit tests for all Lambda functions
+  - [x] 4.6 Write unit tests for all Lambda functions
+
 
     - Create comprehensive test suites using pytest and moto
     - Test error scenarios and retry mechanisms
@@ -105,7 +98,9 @@
 
 - [ ] 5. Build Step Functions workflow orchestration
 
-  - [ ] 5.1 Design and implement Step Functions state machine
+  - [x] 5.1 Design and implement Step Functions state machine
+
+
 
     - Create workflow definition with all pipeline states
     - Configure retry policies and error handling for each state

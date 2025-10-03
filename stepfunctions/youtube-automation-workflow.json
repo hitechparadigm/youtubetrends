@@ -1,0 +1,328 @@
+{
+  "Comment": "YouTube Automation Platform - Complete Content Creation Pipeline",
+  "StartAt": "TrendDetection",
+  "States": {
+    "TrendDetection": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${TrendDetectorFunctionArn}",
+        "Payload": {
+          "topics.$": "$.topics",
+          "region.$": "$.region",
+          "maxResults.$": "$.maxResults",
+          "hoursBack.$": "$.hoursBack"
+        }
+      },
+      "ResultPath": "$.trendDetectionResult",
+      "TimeoutSeconds": 900,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "States.Timeout"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyError",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "CheckTrendsFound"
+    },
+    
+    "CheckTrendsFound": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.trendDetectionResult.Payload.trendsDetected",
+          "NumericGreaterThan": 0,
+          "Next": "ProcessTrendsByTopic"
+        }
+      ],
+      "Default": "NoTrendsFound"
+    },
+    
+    "ProcessTrendsByTopic": {
+      "Type": "Map",
+      "ItemsPath": "$.trendDetectionResult.Payload.results",
+      "MaxConcurrency": 3,
+      "Iterator": {
+        "StartAt": "ContentAnalysis",
+        "States": {
+          "ContentAnalysis": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "${ContentAnalyzerFunctionArn}",
+              "Payload": {
+                "topic.$": "$.topic",
+                "trendsData.$": "$.trends",
+                "maxVideos": 2,
+                "minEngagementScore": 0.02
+              }
+            },
+            "ResultPath": "$.contentAnalysisResult",
+            "TimeoutSeconds": 600,
+            "Retry": [
+              {
+                "ErrorEquals": ["States.TaskFailed"],
+                "IntervalSeconds": 20,
+                "MaxAttempts": 2,
+                "BackoffRate": 2.0
+              }
+            ],
+            "Next": "CheckContentSelected"
+          },
+          
+          "CheckContentSelected": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.contentAnalysisResult.Payload.selectedTrends",
+                "IsPresent": true,
+                "Next": "ProcessSelectedContent"
+              }
+            ],
+            "Default": "SkipTopic"
+          },
+          
+          "ProcessSelectedContent": {
+            "Type": "Map",
+            "ItemsPath": "$.contentAnalysisResult.Payload.scriptPrompts",
+            "MaxConcurrency": 2,
+            "Iterator": {
+              "StartAt": "VideoGeneration",
+              "States": {
+                "VideoGeneration": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::lambda:invoke",
+                  "Parameters": {
+                    "FunctionName": "${VideoGeneratorFunctionArn}",
+                    "Payload": {
+                      "scriptPrompt.$": "$.prompt",
+                      "topic.$": "$$.Map.Item.Value.topic",
+                      "trendId.$": "$.trendId",
+                      "videoConfig": {
+                        "durationSeconds.$": "$.estimatedLength",
+                        "fps": 24,
+                        "dimension": "1920x1080",
+                        "quality": "high",
+                        "includeAudio": true
+                      },
+                      "audioConfig": {
+                        "voice": "neural",
+                        "speed": "medium",
+                        "language": "en-US"
+                      }
+                    }
+                  },
+                  "ResultPath": "$.videoGenerationResult",
+                  "TimeoutSeconds": 1800,
+                  "Retry": [
+                    {
+                      "ErrorEquals": ["States.TaskFailed"],
+                      "IntervalSeconds": 60,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2.0
+                    }
+                  ],
+                  "Next": "CheckVideoGenerated"
+                },
+                
+                "CheckVideoGenerated": {
+                  "Type": "Choice",
+                  "Choices": [
+                    {
+                      "Variable": "$.videoGenerationResult.Payload.success",
+                      "BooleanEquals": true,
+                      "Next": "VideoProcessing"
+                    }
+                  ],
+                  "Default": "VideoGenerationFailed"
+                },
+                
+                "VideoProcessing": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::lambda:invoke",
+                  "Parameters": {
+                    "FunctionName": "${VideoProcessorFunctionArn}",
+                    "Payload": {
+                      "videoS3Key.$": "$.videoGenerationResult.Payload.videoS3Key",
+                      "audioS3Key.$": "$.videoGenerationResult.Payload.audioS3Key",
+                      "topic.$": "$$.Map.Item.Value.topic",
+                      "trendId.$": "$.trendId",
+                      "metadata": {
+                        "duration.$": "$.videoGenerationResult.Payload.metadata.duration",
+                        "format.$": "$.videoGenerationResult.Payload.metadata.format",
+                        "hasAudio.$": "$.videoGenerationResult.Payload.metadata.hasAudio"
+                      },
+                      "processingConfig": {
+                        "outputFormat": "mp4",
+                        "quality": "high",
+                        "resolution": "1920x1080",
+                        "bitrate": "8000"
+                      }
+                    }
+                  },
+                  "ResultPath": "$.videoProcessingResult",
+                  "TimeoutSeconds": 1800,
+                  "Retry": [
+                    {
+                      "ErrorEquals": ["States.TaskFailed"],
+                      "IntervalSeconds": 120,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2.0
+                    }
+                  ],
+                  "Next": "CheckVideoProcessed"
+                },
+                
+                "CheckVideoProcessed": {
+                  "Type": "Choice",
+                  "Choices": [
+                    {
+                      "Variable": "$.videoProcessingResult.Payload.success",
+                      "BooleanEquals": true,
+                      "Next": "YouTubeUpload"
+                    }
+                  ],
+                  "Default": "VideoProcessingFailed"
+                },
+                
+                "YouTubeUpload": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::lambda:invoke",
+                  "Parameters": {
+                    "FunctionName": "${YouTubeUploaderFunctionArn}",
+                    "Payload": {
+                      "processedVideoS3Key.$": "$.videoProcessingResult.Payload.processedVideoS3Key",
+                      "topic.$": "$$.Map.Item.Value.topic",
+                      "trendId.$": "$.trendId",
+                      "scriptPrompt.$": "$.prompt",
+                      "keywords.$": "$.keywords",
+                      "videoMetadata": {
+                        "duration.$": "$.videoProcessingResult.Payload.outputMetadata.duration",
+                        "fileSize.$": "$.videoProcessingResult.Payload.outputMetadata.fileSize",
+                        "format.$": "$.videoProcessingResult.Payload.outputMetadata.format",
+                        "resolution.$": "$.videoProcessingResult.Payload.outputMetadata.resolution",
+                        "isYouTubeOptimized.$": "$.videoProcessingResult.Payload.outputMetadata.isYouTubeOptimized"
+                      },
+                      "uploadConfig": {
+                        "privacyStatus": "public",
+                        "categoryId": "27"
+                      }
+                    }
+                  },
+                  "ResultPath": "$.youtubeUploadResult",
+                  "TimeoutSeconds": 900,
+                  "Retry": [
+                    {
+                      "ErrorEquals": ["States.TaskFailed"],
+                      "IntervalSeconds": 60,
+                      "MaxAttempts": 3,
+                      "BackoffRate": 2.0
+                    }
+                  ],
+                  "Next": "VideoUploadComplete"
+                },
+                
+                "VideoUploadComplete": {
+                  "Type": "Pass",
+                  "Result": {
+                    "status": "SUCCESS",
+                    "message": "Video successfully uploaded to YouTube"
+                  },
+                  "End": true
+                },
+                
+                "VideoGenerationFailed": {
+                  "Type": "Pass",
+                  "Result": {
+                    "status": "FAILED",
+                    "stage": "VIDEO_GENERATION",
+                    "message": "Video generation failed"
+                  },
+                  "End": true
+                },
+                
+                "VideoProcessingFailed": {
+                  "Type": "Pass",
+                  "Result": {
+                    "status": "FAILED",
+                    "stage": "VIDEO_PROCESSING", 
+                    "message": "Video processing failed"
+                  },
+                  "End": true
+                }
+              }
+            },
+            "ResultPath": "$.videoResults",
+            "End": true
+          },
+          
+          "SkipTopic": {
+            "Type": "Pass",
+            "Result": {
+              "status": "SKIPPED",
+              "message": "No suitable content found for this topic"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.topicResults",
+      "Next": "WorkflowComplete"
+    },
+    
+    "WorkflowComplete": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Subject": "YouTube Automation Workflow Complete",
+        "Message": {
+          "workflowStatus": "COMPLETED",
+          "executionTime.$": "$$.Execution.StartTime",
+          "trendsProcessed.$": "$.trendDetectionResult.Payload.trendsDetected",
+          "topicsAnalyzed.$": "$.trendDetectionResult.Payload.topicsAnalyzed",
+          "results.$": "$.topicResults"
+        }
+      },
+      "End": true
+    },
+    
+    "NoTrendsFound": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Subject": "YouTube Automation - No Trends Found",
+        "Message": {
+          "workflowStatus": "NO_CONTENT",
+          "message": "No trending topics found matching criteria",
+          "executionTime.$": "$$.Execution.StartTime"
+        }
+      },
+      "End": true
+    },
+    
+    "NotifyError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Subject": "YouTube Automation Workflow Error",
+        "Message": {
+          "workflowStatus": "ERROR",
+          "error.$": "$.error",
+          "executionTime.$": "$$.Execution.StartTime"
+        }
+      },
+      "End": true
+    }
+  }
+}
