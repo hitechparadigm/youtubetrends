@@ -19,20 +19,15 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // VPC for Lambda functions with NAT Gateway for external API calls
+    // VPC for Lambda functions with public subnets (cost-optimized)
     this.vpc = new ec2.Vpc(this, 'YoutubeAutomationVpc', {
       maxAzs: 2,
-      natGateways: 1,
+      natGateways: 0, // Remove NAT Gateway to save costs
       subnetConfiguration: [
         {
           cidrMask: 24,
           name: 'Public',
           subnetType: ec2.SubnetType.PUBLIC,
-        },
-        {
-          cidrMask: 24,
-          name: 'Private',
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
         },
       ],
     });
@@ -145,7 +140,7 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       roleName: 'YoutubeAutomationLambdaRole',
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
       ],
       inlinePolicies: {
         YoutubeAutomationPolicy: new iam.PolicyDocument({

@@ -93,8 +93,8 @@ describe('YoutubeAutomationPlatformStack', () => {
       EnableDnsSupport: true
     });
 
-    // Check for NAT Gateway
-    template.resourceCountIs('AWS::EC2::NatGateway', 1);
+    // Check that NAT Gateway is not created (cost optimization)
+    template.resourceCountIs('AWS::EC2::NatGateway', 0);
   });
 
   test('creates IAM roles with correct permissions', () => {
