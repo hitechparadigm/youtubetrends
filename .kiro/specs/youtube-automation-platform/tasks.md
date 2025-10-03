@@ -2,7 +2,6 @@
 
 - [x] 1. Set up AWS infrastructure and core services
 
-
   - Create AWS account setup with IAM roles and policies for all required services
   - Configure VPC, security groups, and networking for Lambda functions
   - Set up AWS Secrets Manager for YouTube API credentials and OAuth tokens
@@ -13,14 +12,12 @@
 
   - [x] 2.1 Implement DynamoDB table schemas for TrendAnalytics and VideoMetadata
 
-
-
     - Create tables with proper partition keys, sort keys, and GSI configurations
     - Set up on-demand billing and auto-scaling policies
     - _Requirements: 1.2, 5.2, 7.3_
 
+  - [x] 2.2 Build data access layer with repository pattern
 
-  - [ ] 2.2 Build data access layer with repository pattern
 
     - Implement TrendRepository and VideoRepository classes with CRUD operations
     - Add connection pooling and error handling for DynamoDB operations
@@ -33,12 +30,15 @@
 
 - [ ] 3. Implement YouTube Data API integration
 
-  - [ ] 3.1 Create YouTube API client with authentication
+  - [x] 3.1 Create YouTube API client with authentication
+
+
 
     - Implement OAuth2 flow for YouTube API access
     - Create service class for YouTube Data API v3 operations
     - Add rate limiting and quota management
     - _Requirements: 1.1, 3.3, 6.1_
+
 
   - [ ] 3.2 Build trend detection functionality
 
