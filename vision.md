@@ -16,9 +16,11 @@ Building an automated YouTube content creation solution on AWS requires a server
 
 **Amazon DynamoDB** stores trend data, video metadata, and performance analytics with single-digit millisecond response times. The database design includes trend tracking, content generation history, and YouTube performance metrics.[^5][^6]
 
-**Amazon Bedrock with Nova Reel** handles AI-powered video generation from text prompts, providing text-to-video capabilities through the Amazon Nova foundation model.[^7][^8]
+**Amazon Bedrock with Nova Reel** handles AI-powered video generation from customizable text prompts, providing text-to-video capabilities with configurable parameters (5-10 minute default length, custom dimensions and quality).
 
-**AWS Elemental MediaConvert** processes and optimizes generated videos for YouTube upload, handling transcoding and format optimization.[^9][^10]
+**Amazon Polly** provides high-quality text-to-speech narration with topic-specific vocabulary and speaking styles, enabling professional audio content for different niches (investing, education, tourism, etc.).[^7][^8]
+
+**AWS Elemental MediaConvert** processes and optimizes generated videos for YouTube upload, handling transcoding, format optimization, and audio-video synchronization for professional-quality content.[^9][^10]
 
 ### Architecture Flow
 

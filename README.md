@@ -8,12 +8,14 @@ This platform uses AWS CDK to deploy a serverless architecture including:
 
 - **AWS Step Functions** - Orchestrates the entire pipeline
 - **AWS Lambda** - Serverless compute for business logic
-- **Amazon DynamoDB** - Stores trend data and video metadata
-- **Amazon S3** - Video storage with lifecycle policies
-- **Amazon Bedrock Nova Reel** - AI-powered video generation
-- **AWS Elemental MediaConvert** - Video processing and optimization
+- **Amazon DynamoDB** - Stores trend data, video metadata, and configuration settings
+- **Amazon S3** - Video and audio storage with lifecycle policies
+- **Amazon Bedrock Nova Reel** - AI-powered video generation with custom prompts
+- **Amazon Polly** - High-quality text-to-speech for audio narration
+- **AWS Elemental MediaConvert** - Video processing, audio mixing, and optimization
 - **Amazon EventBridge** - Scheduling and event-driven triggers
 - **AWS Secrets Manager** - Secure credential storage
+- **AWS Systems Manager Parameter Store** - Configuration management
 
 ## Prerequisites
 
@@ -124,15 +126,43 @@ Set up GitHub environments for:
 - **Secrets Manager** - Secure credential storage with automatic rotation support
 - **IAM least privilege** - Minimal required permissions for each component
 
+## Key Features
+
+### 🎯 **Configurable Content Topics**
+- Support for multiple niches: education, investing, tourism, technology, health, finance
+- Custom topic creation and management
+- Topic-specific trend analysis and content generation
+
+### 🎬 **Advanced Video Generation**
+- Configurable video length (5-10 minutes default, 1-20 minutes range)
+- Custom prompts and templates for different content types
+- High-quality audio narration with topic-specific vocabulary
+- Professional video-audio synchronization
+
+### 🗣️ **Intelligent Audio Narration**
+- Amazon Polly integration for natural-sounding speech
+- Topic-specific content (e.g., discussing ETFs, stocks for investing videos)
+- Configurable voice characteristics and pacing
+- Multi-language support
+
+### ⚙️ **Easy Configuration Management**
+- Intuitive configuration interface for non-technical users
+- Real-time cost impact estimation
+- Validation and default value management
+- API-driven configuration updates
+
 ## Next Steps
 
 After deploying the infrastructure:
 
 1. **Configure YouTube API credentials** in Secrets Manager
-2. **Implement Lambda functions** for each pipeline stage
-3. **Create Step Functions workflow** definition
-4. **Set up EventBridge schedules** for automated execution
-5. **Configure monitoring and alerting**
+2. **Set up your content topics and preferences** via configuration interface
+3. **Customize video generation prompts** for your niches
+4. **Configure audio and video parameters** (length, quality, voice settings)
+5. **Implement Lambda functions** for each pipeline stage
+6. **Create Step Functions workflow** definition
+7. **Set up EventBridge schedules** for automated execution
+8. **Configure monitoring and alerting**
 
 ## Development Workflow
 

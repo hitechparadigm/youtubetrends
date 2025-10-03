@@ -1,0 +1,79 @@
+{
+  "topics": {
+    "investing": {
+      "enabled": true,
+      "keywords": ["stocks", "ETFs", "portfolio", "dividends", "market analysis", "financial planning"],
+      "prompts": {
+        "script_template": "Create an educational video about {topic} that explains key concepts in simple terms. Include practical examples and actionable advice for beginners. Focus on {keywords} and provide clear explanations.",
+        "title_template": "{number} Essential {topic} Tips Every Beginner Should Know",
+        "description_template": "Learn about {topic} with this comprehensive guide covering {keywords}. Perfect for beginners looking to understand the fundamentals."
+      },
+      "audio_settings": {
+        "voice": "Matthew",
+        "speed": "medium",
+        "style": "professional",
+        "vocabulary_focus": ["financial terms", "investment concepts", "market terminology"]
+      }
+    },
+    "education": {
+      "enabled": true,
+      "keywords": ["learning", "study tips", "productivity", "skills", "knowledge", "academic success"],
+      "prompts": {
+        "script_template": "Create an engaging educational video about {topic} that helps viewers learn effectively. Include practical study methods and real-world applications of {keywords}.",
+        "title_template": "Master {topic}: {number} Proven Strategies That Actually Work",
+        "description_template": "Discover effective {topic} strategies and techniques. This video covers {keywords} with actionable tips you can implement immediately."
+      },
+      "audio_settings": {
+        "voice": "Joanna",
+        "speed": "medium",
+        "style": "friendly",
+        "vocabulary_focus": ["educational terms", "learning concepts", "academic language"]
+      }
+    },
+    "tourism": {
+      "enabled": true,
+      "keywords": ["travel", "destinations", "vacation", "adventure", "culture", "experiences"],
+      "prompts": {
+        "script_template": "Create an inspiring travel video about {topic} showcasing amazing destinations and experiences. Highlight {keywords} and provide practical travel tips.",
+        "title_template": "{number} Incredible {topic} Destinations You Must Visit",
+        "description_template": "Explore the world's most amazing {topic} destinations. This video features {keywords} and insider tips for your next adventure."
+      },
+      "audio_settings": {
+        "voice": "Amy",
+        "speed": "medium",
+        "style": "enthusiastic",
+        "vocabulary_focus": ["travel terms", "cultural references", "geographic locations"]
+      }
+    }
+  },
+  "video_settings": {
+    "default_length_minutes": 8,
+    "min_length_minutes": 3,
+    "max_length_minutes": 15,
+    "resolution": "1920x1080",
+    "fps": 24,
+    "quality": "high",
+    "include_audio": true,
+    "audio_format": "mp3",
+    "video_format": "mp4"
+  },
+  "content_generation": {
+    "max_videos_per_day": 3,
+    "min_engagement_threshold": 2.0,
+    "trending_analysis_frequency": "daily",
+    "content_freshness_hours": 24,
+    "duplicate_detection": true
+  },
+  "cost_controls": {
+    "max_daily_cost": 10.00,
+    "max_monthly_cost": 200.00,
+    "cost_alerts_enabled": true,
+    "auto_throttle_enabled": true
+  },
+  "scheduling": {
+    "trend_analysis_time": "08:00",
+    "video_generation_time": "02:00",
+    "upload_time": "10:00",
+    "timezone": "America/New_York"
+  }
+}

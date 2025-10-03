@@ -8,27 +8,31 @@ This document outlines the requirements for an automated YouTube content creatio
 
 ### Requirement 1
 
-**User Story:** As a content creator, I want the system to automatically detect trending topics in my niche, so that I can create timely and relevant content that has higher engagement potential.
+**User Story:** As a content creator, I want to configure specific topics for YouTube trend analysis and customize the content generation parameters, so that I can create targeted content in my chosen niches with full control over video characteristics.
 
 #### Acceptance Criteria
 
-1. WHEN the system runs its scheduled trend analysis THEN it SHALL collect trending video data from YouTube Data API v3
-2. WHEN trend data is collected THEN the system SHALL store it in DynamoDB with timestamps and engagement metrics
-3. WHEN analyzing trends THEN the system SHALL identify patterns within specific content categories (e.g., tourism, technology)
-4. IF trending topics are detected THEN the system SHALL rank them by engagement potential and relevance
-5. WHEN trend analysis completes THEN the system SHALL trigger the content generation pipeline for high-potential topics
+1. WHEN I configure the system THEN it SHALL allow me to specify custom topics for analysis (e.g., education, investing, tourism, technology, health, finance)
+2. WHEN the system runs its scheduled trend analysis THEN it SHALL collect trending video data from YouTube Data API v3 for my specified topics only
+3. WHEN trend data is collected THEN the system SHALL store it in DynamoDB with timestamps, engagement metrics, and topic categorization
+4. WHEN analyzing trends THEN the system SHALL identify patterns within my specified content categories and rank them by engagement potential
+5. WHEN trend analysis completes THEN the system SHALL trigger the content generation pipeline for high-potential topics in my configured niches
+6. IF I update my topic configuration THEN the system SHALL immediately apply the new settings to future trend analysis cycles
 
 ### Requirement 2
 
-**User Story:** As a content creator, I want the system to automatically generate video content from trending topics, so that I can produce consistent content without manual script writing and video creation.
+**User Story:** As a content creator, I want to customize video generation prompts and parameters including video length and audio narration, so that I can produce high-quality content that matches my brand and audience preferences.
 
 #### Acceptance Criteria
 
-1. WHEN a trending topic is selected THEN the system SHALL generate a video script using AI based on the topic
-2. WHEN the script is ready THEN the system SHALL use Amazon Bedrock Nova Reel to create a video from the script
-3. WHEN video generation starts THEN the system SHALL configure appropriate video parameters (1920x1080, 24fps, 60 seconds duration)
-4. IF video generation fails THEN the system SHALL retry up to 3 times with exponential backoff
-5. WHEN video is generated THEN the system SHALL store it in S3 with proper metadata and versioning
+1. WHEN I configure the system THEN it SHALL allow me to customize video generation prompts for different topics and content types
+2. WHEN I set video parameters THEN the system SHALL allow me to specify video length (default 5-10 minutes, configurable from 1-20 minutes)
+3. WHEN a trending topic is selected THEN the system SHALL generate a video script using AI based on the topic and my custom prompts
+4. WHEN the script is ready THEN the system SHALL use Amazon Bedrock Nova Reel to create a video with both visual and audio components
+5. WHEN generating videos about specific topics (e.g., investing) THEN the system SHALL include relevant audio narration discussing topic-specific content (e.g., ETFs, stocks, market analysis)
+6. WHEN video generation starts THEN the system SHALL configure video parameters (1920x1080, 24fps, configurable duration) and ensure audio track is included
+7. IF video generation fails THEN the system SHALL retry up to 3 times with exponential backoff
+8. WHEN video is generated THEN the system SHALL store it in S3 with proper metadata, versioning, and audio/video quality indicators
 
 ### Requirement 3
 
@@ -89,3 +93,17 @@ This document outlines the requirements for an automated YouTube content creatio
 3. WHEN storage costs accumulate THEN the system SHALL implement lifecycle policies to archive old content
 4. IF usage patterns change THEN the system SHALL optimize resource allocation automatically
 5. WHEN budget limits are approached THEN the system SHALL throttle non-essential operations to stay within budget
+
+### Requirement 8
+
+**User Story:** As a content creator, I want to easily configure and manage my content generation settings, so that I can customize the system behavior without technical expertise.
+
+#### Acceptance Criteria
+
+1. WHEN I access the configuration interface THEN the system SHALL provide an intuitive way to manage topic preferences, video settings, and content prompts
+2. WHEN I configure topics THEN the system SHALL support predefined categories (education, investing, tourism, technology, health, finance, entertainment) and allow custom topic creation
+3. WHEN I customize prompts THEN the system SHALL allow me to define topic-specific script templates and content guidelines for different niches
+4. WHEN I set video parameters THEN the system SHALL allow me to configure default video length (5-10 minutes), quality settings, and audio preferences
+5. WHEN I update configurations THEN the system SHALL validate settings and apply changes to future content generation cycles
+6. WHEN I manage audio settings THEN the system SHALL allow me to specify voice characteristics, speaking pace, and topic-specific vocabulary preferences
+7. IF configuration changes affect costs THEN the system SHALL provide cost impact estimates before applying changes

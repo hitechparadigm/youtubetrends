@@ -48,14 +48,16 @@ graph TB
 - EventBridge Rules: Event-driven triggers for asynchronous processing
 
 **Data Layer**
-- Amazon DynamoDB: Primary data store for trends, video metadata, and analytics
-- Amazon S3: Video storage with lifecycle policies for cost optimization
+- Amazon DynamoDB: Primary data store for trends, video metadata, analytics, and configuration settings
+- Amazon S3: Video and audio storage with lifecycle policies for cost optimization
 - AWS Secrets Manager: Secure storage for API credentials and OAuth tokens
+- AWS Systems Manager Parameter Store: Configuration management for topics, prompts, and video settings
 
 **Processing Layer**
 - AWS Lambda: Serverless compute for all business logic components
-- Amazon Bedrock Nova Reel: AI-powered text-to-video generation
-- AWS Elemental MediaConvert: Video processing and optimization for YouTube
+- Amazon Bedrock Nova Reel: AI-powered text-to-video generation with audio narration
+- Amazon Polly: Text-to-speech for high-quality audio narration
+- AWS Elemental MediaConvert: Video processing, audio mixing, and YouTube optimization
 
 **Integration Layer**
 - YouTube Data API v3: Trend detection and video upload functionality
@@ -100,10 +102,37 @@ graph TB
   "Resource": "arn:aws:lambda:region:account:function:video-generator",
   "Parameters": {
     "script.$": "$.scriptContent",
+    "topic.$": "$.topic",
     "videoConfig": {
       "fps": 24,
-      "durationSeconds": 60,
-      "dimension": "1920x1080"
+      "durationSeconds": 600,
+      "dimension": "1920x1080",
+      "includeAudio": true,
+      "audioConfig": {
+        "voice": "neural",
+        "speed": "medium",
+        "language": "en-US"
+      }
+    }
+  },
+  "TimeoutSeconds": 3600,
+  "Next": "AudioGenerationState"
+}
+```
+
+**AudioGenerationState**
+```json
+{
+  "Type": "Task",
+  "Resource": "arn:aws:lambda:region:account:function:audio-generator",
+  "Parameters": {
+    "script.$": "$.scriptContent",
+    "topic.$": "$.topic",
+    "audioConfig": {
+      "voice": "neural",
+      "speed": "medium",
+      "language": "en-US",
+      "outputFormat": "mp3"
     }
   },
   "TimeoutSeconds": 1800,
@@ -283,9 +312,19 @@ class VideoGenerationRequest:
 @dataclass 
 class VideoConfig:
     fps: int = 24
-    duration_seconds: int = 60
+    duration_seconds: int = 600  # Default 10 minutes
     dimension: str = "1920x1080"
     quality: str = "high"
+    include_audio: bool = True
+    audio_config: AudioConfig = None
+
+@dataclass
+class AudioConfig:
+    voice: str = "neural"
+    speed: str = "medium"
+    language: str = "en-US"
+    output_format: str = "mp3"
+    topic_vocabulary: List[str] = None
     
 @dataclass
 class GeneratedVideo:
