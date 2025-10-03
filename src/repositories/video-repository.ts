@@ -193,17 +193,21 @@ export class VideoRepository extends BaseRepository {
       expressionAttributeValues[':status'] = options.status;
     }
 
-    const items = await this.query({
-      IndexName: 'UploadDateIndex',
-      KeyConditionExpression: 'uploadDate BETWEEN :startDate AND :endDate',
-      FilterExpression: options.status ? '#status = :status' : undefined,
+    // Use scan instead of query since we need to filter by date range
+    // and the GSI only has uploadDate as partition key
+    const items = await this.scan({
+      FilterExpression: filterExpression,
       ExpressionAttributeNames: options.status ? { '#status': 'status' } : undefined,
       ExpressionAttributeValues: expressionAttributeValues,
-      Limit: options.limit,
-      ScanIndexForward: false // Most recent first
+      Limit: options.limit
     });
 
-    return items.map(item => VideoMetadataModel.fromDynamoDbItem(item));
+    // Sort by upload date descending (most recent first)
+    const sortedItems = items.sort((a, b) => 
+      new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+    );
+
+    return sortedItems.map(item => VideoMetadataModel.fromDynamoDbItem(item));
   }
 
   async getRecentVideos(days: number = 7, limit: number = 50): Promise<VideoMetadata[]> {

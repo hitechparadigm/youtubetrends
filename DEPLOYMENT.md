@@ -1,132 +1,231 @@
-# YouTube Automation Platform - Deployment Guide
+# Deployment Guide
 
-## 🎉 Task 1 Complete: AWS Infrastructure Setup
+This guide walks you through deploying the YouTube Automation Platform to AWS.
 
-Your YouTube automation platform infrastructure is now ready for deployment! Here's what we've built:
+## Prerequisites
 
-### ✅ What's Been Implemented
+### Required Software
+- **Node.js 18+** and npm
+- **AWS CLI** configured with appropriate permissions
+- **AWS CDK CLI** installed globally: `npm install -g aws-cdk`
+- **Git** for version control
 
-#### **Core Infrastructure (CDK)**
-- **VPC with NAT Gateway** - Secure networking for Lambda functions
-- **S3 Bucket** - Video storage with lifecycle policies for cost optimization
-- **DynamoDB Tables** - TrendAnalytics and VideoMetadata with GSI indexes
-- **Secrets Manager** - Secure YouTube API credential storage
-- **IAM Roles** - Least-privilege permissions for Lambda and Step Functions
-- **SNS Topic** - Notification system for alerts and monitoring
-- **CloudWatch Dashboard** - Monitoring and observability setup
+### AWS Requirements
+- **AWS Account** with administrative access
+- **AWS CLI configured** with credentials that have:
+  - CloudFormation full access
+  - IAM role creation permissions
+  - DynamoDB, S3, Lambda, Step Functions permissions
+  - VPC and networking permissions
 
-#### **Development & CI/CD**
-- **GitHub Actions Workflow** - Automated testing and deployment
-- **Comprehensive Test Suite** - Unit tests for all infrastructure components
-- **PowerShell Scripts** - Windows-compatible deployment automation
-- **Environment Configuration** - Support for dev/staging/production
-
-### 🏗️ Infrastructure Components
-
-| Component | Purpose | Configuration |
-|-----------|---------|---------------|
-| **VPC** | Secure networking | 2 AZs, 1 NAT Gateway, public/private subnets |
-| **S3 Bucket** | Video storage | Versioned, encrypted, lifecycle policies |
-| **DynamoDB** | Data storage | Pay-per-request, encrypted, point-in-time recovery |
-| **Secrets Manager** | Credential storage | YouTube API keys and OAuth tokens |
-| **IAM Roles** | Security | Lambda execution and Step Functions roles |
-| **SNS** | Notifications | Error alerts and status updates |
-| **CloudWatch** | Monitoring | Dashboard and custom metrics |
-
-### 🚀 Quick Start
-
-1. **Prerequisites Check:**
-   ```powershell
-   .\scripts\setup.ps1
-   ```
-
-2. **Configure AWS:**
-   ```bash
-   aws configure
-   npx cdk bootstrap  # First time only
-   ```
-
-3. **Deploy Infrastructure:**
-   ```powershell
-   .\scripts\deploy.ps1
-   ```
-
-### 📊 Test Results
-
-All infrastructure tests are passing:
-- ✅ S3 bucket with lifecycle policies
-- ✅ DynamoDB tables with correct configuration  
-- ✅ Secrets Manager for YouTube credentials
-- ✅ VPC with proper networking setup
-- ✅ IAM roles with required permissions
-- ✅ SNS topic for notifications
-- ✅ CloudWatch dashboard
-- ✅ Correct number of stack outputs
-- ✅ IAM policies with required permissions
-
-### 💰 Cost Optimization Features
-
-- **Serverless Architecture** - Pay only for what you use
-- **S3 Lifecycle Policies** - Automatic transition to cheaper storage
-- **DynamoDB On-Demand** - No idle capacity costs
-- **Single NAT Gateway** - Minimize networking costs
-- **Resource Tagging** - Cost tracking and allocation
-
-### 🔒 Security Features
-
-- **VPC Isolation** - Lambda functions in private subnets
-- **Encryption at Rest** - S3 and DynamoDB encrypted
-- **IAM Least Privilege** - Minimal required permissions
-- **Secrets Manager** - Secure credential storage
-- **Default Security Group Restrictions** - No unnecessary access
-
-### 📈 Monitoring & Observability
-
-- **CloudWatch Dashboard** - Real-time system monitoring
-- **Custom Metrics** - Application-specific monitoring
-- **SNS Notifications** - Automated alerting
-- **Structured Logging** - Comprehensive audit trails
-
-### 🔄 CI/CD Pipeline
-
-The GitHub Actions workflow provides:
-- **Automated Testing** - Run on every PR and push
-- **Staging Deployments** - Test changes before production
-- **Production Deployments** - Automated main branch deployments
-- **Environment Cleanup** - Automatic staging environment teardown
-
-### 📋 Next Steps
-
-Now that your infrastructure is ready, you can proceed with:
-
-1. **Task 2**: Create DynamoDB tables and data access layer
-2. **Task 3**: Implement YouTube Data API integration
-3. **Task 4**: Develop Lambda functions for core pipeline
-4. **Task 5**: Build Step Functions workflow orchestration
-
-### 🛠️ Useful Commands
-
+### Verify Prerequisites
 ```bash
-# Development
-npm run build          # Compile TypeScript
-npm test              # Run test suite
-npm run synth         # Generate CloudFormation
+# Check Node.js version (should be 18+)
+node --version
 
-# Deployment
-.\scripts\deploy.ps1   # Deploy to AWS
-npm run diff          # Show infrastructure changes
-npm run destroy       # Clean up resources
+# Check AWS CLI configuration
+aws sts get-caller-identity
 
-# Monitoring
-aws logs tail /aws/lambda/youtube-automation --follow
-aws cloudformation describe-stacks --stack-name YoutubeAutomationPlatformStack
+# Check CDK CLI
+cdk --version
 ```
 
-### 🎯 Repository Information
+## Step-by-Step Deployment
 
-- **GitHub**: https://github.com/hitechparadigm/youtubetrends.git
-- **Stack Name**: YoutubeAutomationPlatformStack
-- **Region**: us-east-1
-- **CDK Version**: 2.100.0
+### 1. Clone and Setup
+```bash
+# Clone the repository
+git clone https://github.com/hitechparadigm/youtubetrends.git
+cd youtubetrends
 
-Your YouTube automation platform foundation is solid and ready for the next phase of development! 🚀
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+```
+
+### 2. CDK Bootstrap (First Time Only)
+```bash
+# Bootstrap CDK in your AWS account/region
+npx cdk bootstrap
+
+# Verify bootstrap was successful
+aws cloudformation describe-stacks --stack-name CDKToolkit
+```
+
+### 3. Review and Deploy
+```bash
+# Review what will be deployed
+npm run cdk diff
+
+# Deploy the infrastructure
+npm run deploy
+
+# Or deploy with approval prompts
+npx cdk deploy --require-approval=broadening
+```
+
+### 4. Validate Deployment
+```bash
+# Run the simple infrastructure test
+npm run test:simple
+```
+
+Expected output:
+```
+🎉 All tests passed! Infrastructure is working correctly.
+
+📋 Summary:
+   ✅ DynamoDB connection established
+   ✅ TrendRepository CRUD operations working
+   ✅ VideoRepository CRUD operations working
+   ✅ Data integrity validated
+   ✅ Query methods functioning
+```
+
+## Deployment Outputs
+
+After successful deployment, you'll have:
+
+### AWS Resources Created
+- **DynamoDB Tables**: `TrendAnalytics`, `VideoMetadata`
+- **S3 Bucket**: `youtube-automation-videos-{account}-{region}`
+- **VPC**: Dedicated VPC with public/private subnets
+- **IAM Roles**: Lambda execution roles with appropriate permissions
+- **Secrets Manager**: Secret placeholder for YouTube API credentials
+- **CloudWatch**: Log groups and dashboard
+
+### Resource Naming Convention
+All resources are prefixed with `youtube-automation-` for easy identification.
+
+## Post-Deployment Configuration
+
+### 1. YouTube API Credentials (Optional)
+If you want to test YouTube integration:
+
+```bash
+# Create YouTube Data API v3 credentials in Google Cloud Console
+# Then store them in Secrets Manager:
+aws secretsmanager put-secret-value \
+  --secret-id youtube-automation/credentials \
+  --secret-string '{
+    "client_id": "your-client-id",
+    "client_secret": "your-client-secret", 
+    "refresh_token": "your-refresh-token",
+    "project_id": "your-project-id"
+  }'
+```
+
+### 2. Verify Resource Access
+```bash
+# Check DynamoDB tables
+aws dynamodb list-tables --query 'TableNames[?contains(@, `youtube-automation`)]'
+
+# Check S3 bucket
+aws s3 ls | grep youtube-automation
+
+# Check Secrets Manager
+aws secretsmanager list-secrets --query 'SecretList[?contains(Name, `youtube-automation`)]'
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. CDK Bootstrap Required
+**Error**: `This stack uses assets, so the toolkit stack must be deployed`
+**Solution**: 
+```bash
+npx cdk bootstrap
+```
+
+#### 2. Insufficient Permissions
+**Error**: `User is not authorized to perform: iam:CreateRole`
+**Solution**: Ensure your AWS credentials have administrative permissions or the specific permissions listed in the prerequisites.
+
+#### 3. Region Mismatch
+**Error**: Resources created in wrong region
+**Solution**: 
+```bash
+# Set default region
+export AWS_DEFAULT_REGION=us-east-1
+# Or specify in CDK command
+npx cdk deploy --region us-east-1
+```
+
+#### 4. Resource Limits
+**Error**: `LimitExceeded` for VPCs or other resources
+**Solution**: Check AWS service limits in your account and request increases if needed.
+
+### Validation Commands
+
+```bash
+# Check CloudFormation stack status
+aws cloudformation describe-stacks --stack-name YoutubeAutomationPlatformStack
+
+# Verify DynamoDB tables
+aws dynamodb describe-table --table-name TrendAnalytics
+aws dynamodb describe-table --table-name VideoMetadata
+
+# Check S3 bucket
+aws s3api head-bucket --bucket youtube-automation-videos-$(aws sts get-caller-identity --query Account --output text)-$(aws configure get region)
+
+# Test DynamoDB access
+npm run test:simple
+```
+
+## Cost Estimation
+
+### Initial Deployment Costs
+- **DynamoDB**: $0 (on-demand, pay per request)
+- **S3**: ~$0.02/month (minimal storage)
+- **VPC**: ~$32/month (NAT Gateway)
+- **CloudWatch**: ~$3/month (logs and metrics)
+- **Secrets Manager**: ~$0.40/month (1 secret)
+
+**Total**: ~$35-40/month for idle infrastructure
+
+### Operational Costs (Estimated)
+- **Lambda executions**: ~$1-5/month (depends on frequency)
+- **DynamoDB requests**: ~$1-10/month (depends on data volume)
+- **S3 storage**: ~$1-20/month (depends on video storage)
+- **Bedrock Nova Reel**: ~$0.05-0.10 per video generated
+- **MediaConvert**: ~$0.015 per minute of video processed
+
+## Cleanup
+
+To remove all resources:
+
+```bash
+# Destroy the CDK stack
+npm run destroy
+
+# Confirm deletion
+npx cdk destroy --force
+
+# Manually delete S3 bucket contents if needed
+aws s3 rm s3://youtube-automation-videos-{account}-{region} --recursive
+```
+
+**Note**: Some resources like DynamoDB tables have deletion protection enabled. You may need to disable protection before deletion.
+
+## Next Steps
+
+After successful deployment:
+
+1. **Run Tests**: `npm test` to validate all components
+2. **Configure Topics**: Set up your content topics and preferences
+3. **Implement Lambda Functions**: Begin Phase 1 of the implementation roadmap
+4. **Set Up Monitoring**: Configure CloudWatch dashboards and alerts
+5. **Production Readiness**: Follow security and performance best practices
+
+## Support
+
+If you encounter issues:
+
+1. Check the troubleshooting section above
+2. Review AWS CloudFormation events in the AWS Console
+3. Check CloudWatch logs for detailed error messages
+4. Ensure all prerequisites are met
+5. Verify AWS service limits and quotas
