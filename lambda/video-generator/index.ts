@@ -1,5 +1,10 @@
 import { Handler, Context } from 'aws-lambda';
 
+// Add missing type definitions
+interface EnhancedVideoGeneratorEvent extends VideoGeneratorEvent {
+  enhancedScript?: string;
+}
+
 export interface VideoGeneratorEvent {
   scriptPrompt: string;
   topic: string;
@@ -22,13 +27,21 @@ export interface VideoGeneratorResponse {
   success: boolean;
   videoS3Key?: string;
   audioS3Key?: string;
+  subtitlesS3Key?: string;
   bedrockJobId?: string;
   pollyJobId?: string;
+  enhancedContent?: {
+    videoPrompt: string;
+    fullScript: string;
+    keyPoints: string[];
+    callToAction: string;
+  };
   metadata: {
     duration: number;
     fileSize: number;
     format: string;
     hasAudio: boolean;
+    hasSubtitles: boolean;
   };
   generationCost: number;
   executionTime: number;
@@ -49,13 +62,35 @@ export const handler: Handler<VideoGeneratorEvent, VideoGeneratorResponse> = asy
   });
 
   try {
-    // Generate video using Amazon Bedrock Nova Reel
-    const videoResult = await generateVideo(event);
+    // Step 1: Generate enhanced content based on trends
+    const enhancedContent = await generateTrendBasedContent(event);
     
-    // Generate audio narration if requested
+    // Step 2: Generate video with enhanced prompt
+    const enhancedEvent: EnhancedVideoGeneratorEvent = {
+      ...event,
+      scriptPrompt: enhancedContent.videoPrompt,
+      enhancedScript: enhancedContent.fullScript
+    };
+    const videoResult = await generateVideo(enhancedEvent);
+    
+    // Step 3: Generate synchronized audio narration
     let audioResult = null;
     if (event.videoConfig.includeAudio) {
-      audioResult = await generateAudio(event);
+      audioResult = await generateSynchronizedAudio({
+        ...event,
+        script: enhancedContent.fullScript,
+        duration: event.videoConfig.durationSeconds
+      });
+    }
+    
+    // Step 4: Generate subtitles/captions
+    let subtitlesResult = null;
+    if (enhancedContent.fullScript) {
+      subtitlesResult = await generateSubtitles({
+        script: enhancedContent.fullScript,
+        duration: event.videoConfig.durationSeconds,
+        s3Key: `subtitles/${event.topic}/${event.trendId}_${Date.now()}.srt`
+      });
     }
 
     // Calculate costs
@@ -76,13 +111,16 @@ export const handler: Handler<VideoGeneratorEvent, VideoGeneratorResponse> = asy
       success: true,
       videoS3Key: videoResult.s3Key,
       audioS3Key: audioResult?.s3Key,
+      subtitlesS3Key: subtitlesResult?.s3Key,
       bedrockJobId: videoResult.jobId,
       pollyJobId: audioResult?.jobId,
+      enhancedContent: enhancedContent,
       metadata: {
         duration: videoResult.duration,
         fileSize: videoResult.fileSize,
         format: videoResult.format,
-        hasAudio: !!audioResult
+        hasAudio: !!audioResult,
+        hasSubtitles: !!subtitlesResult
       },
       generationCost,
       executionTime: Date.now() - startTime
@@ -101,7 +139,8 @@ export const handler: Handler<VideoGeneratorEvent, VideoGeneratorResponse> = asy
         duration: 0,
         fileSize: 0,
         format: '',
-        hasAudio: false
+        hasAudio: false,
+        hasSubtitles: false
       },
       generationCost: 0,
       executionTime: Date.now() - startTime,
@@ -357,6 +396,322 @@ function enhancePromptForTopic(basePrompt: string, topic: string): string {
   
   // Ensure we stay under 512 character limit
   return enhanced.length > 512 ? enhanced.substring(0, 509) + '...' : enhanced;
+}
+
+async function generateTrendBasedContent(event: VideoGeneratorEvent): Promise<{
+  videoPrompt: string;
+  fullScript: string;
+  keyPoints: string[];
+  callToAction: string;
+}> {
+  console.log('Generating trend-based content for enhanced value');
+  
+  try {
+    // Use Claude to generate valuable content based on trends
+    const { BedrockRuntimeClient, InvokeModelCommand } = 
+      await import('@aws-sdk/client-bedrock-runtime');
+
+    const bedrock = new BedrockRuntimeClient({
+      region: process.env.AWS_REGION || 'us-east-1'
+    });
+
+    // Create trend-aware prompt based on topic
+    const trendPrompt = createTrendAwarePrompt(event.topic, event.trendId, event.scriptPrompt);
+    
+    const claudeRequest = {
+      modelId: 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: trendPrompt
+        }]
+      })
+    };
+
+    const response = await bedrock.send(new InvokeModelCommand(claudeRequest));
+    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+    const generatedContent = responseBody.content[0].text;
+
+    // Parse the generated content
+    const contentSections = parseGeneratedContent(generatedContent);
+    
+    return {
+      videoPrompt: contentSections.videoPrompt,
+      fullScript: contentSections.fullScript,
+      keyPoints: contentSections.keyPoints,
+      callToAction: contentSections.callToAction
+    };
+
+  } catch (error) {
+    console.error('Failed to generate trend-based content:', error);
+    
+    // Fallback to basic content
+    return {
+      videoPrompt: event.scriptPrompt,
+      fullScript: `Welcome to today's ${event.topic} update. ${event.scriptPrompt}`,
+      keyPoints: ['Key insight 1', 'Key insight 2', 'Key insight 3'],
+      callToAction: 'Subscribe for more updates!'
+    };
+  }
+}
+
+function createTrendAwarePrompt(topic: string, trendId: string, basePrompt: string): string {
+  const topicPrompts: Record<string, string> = {
+    investing: `You are a financial expert creating valuable investment content. Based on current market trends, create a comprehensive script for a 5-minute video about: ${basePrompt}
+
+Please provide:
+1. A concise video prompt for AI video generation (under 400 characters)
+2. A full narration script (800-1000 words) that includes:
+   - Current market analysis
+   - Specific investment opportunities (mention 3-5 specific stocks, ETFs, or REITs)
+   - Risk assessment and considerations
+   - Actionable advice viewers can implement
+   - Clear timestamps for key sections
+
+Focus on providing real value with specific examples, current data, and actionable insights. Make it educational and informative for both beginners and experienced investors.
+
+Format your response as:
+VIDEO_PROMPT: [concise prompt for video generation]
+FULL_SCRIPT: [complete narration script with timestamps]
+KEY_POINTS: [3-5 main takeaways]
+CALL_TO_ACTION: [engaging subscription message]`,
+
+    technology: `You are a tech industry analyst creating cutting-edge technology content. Based on current tech trends, create a comprehensive script for a 5-minute video about: ${basePrompt}
+
+Please provide:
+1. A concise video prompt for AI video generation (under 400 characters)
+2. A full narration script (800-1000 words) that includes:
+   - Latest technology developments
+   - Specific companies and products to watch
+   - Impact on consumers and businesses
+   - Future predictions and implications
+   - Clear timestamps for key sections
+
+Focus on emerging technologies, AI developments, software innovations, and hardware breakthroughs. Make it accessible yet informative.
+
+Format your response as:
+VIDEO_PROMPT: [concise prompt for video generation]
+FULL_SCRIPT: [complete narration script with timestamps]
+KEY_POINTS: [3-5 main takeaways]
+CALL_TO_ACTION: [engaging subscription message]`,
+
+    education: `You are an educational content expert creating valuable learning content. Based on current educational trends, create a comprehensive script for a 5-minute video about: ${basePrompt}
+
+Please provide:
+1. A concise video prompt for AI video generation (under 400 characters)
+2. A full narration script (800-1000 words) that includes:
+   - Clear learning objectives
+   - Step-by-step explanations
+   - Real-world examples and applications
+   - Practical exercises or tips
+   - Clear timestamps for key sections
+
+Focus on making complex topics accessible and providing actionable learning outcomes.
+
+Format your response as:
+VIDEO_PROMPT: [concise prompt for video generation]
+FULL_SCRIPT: [complete narration script with timestamps]
+KEY_POINTS: [3-5 main takeaways]
+CALL_TO_ACTION: [engaging subscription message]`
+  };
+
+  return topicPrompts[topic.toLowerCase()] || topicPrompts.technology;
+}
+
+function parseGeneratedContent(content: string): {
+  videoPrompt: string;
+  fullScript: string;
+  keyPoints: string[];
+  callToAction: string;
+} {
+  const sections = {
+    videoPrompt: '',
+    fullScript: '',
+    keyPoints: [] as string[],
+    callToAction: ''
+  };
+
+  try {
+    // Extract sections using regex patterns
+    const videoPromptMatch = content.match(/VIDEO_PROMPT:\s*(.*?)(?=\n|FULL_SCRIPT:|$)/s);
+    const fullScriptMatch = content.match(/FULL_SCRIPT:\s*(.*?)(?=\nKEY_POINTS:|$)/s);
+    const keyPointsMatch = content.match(/KEY_POINTS:\s*(.*?)(?=\nCALL_TO_ACTION:|$)/s);
+    const callToActionMatch = content.match(/CALL_TO_ACTION:\s*(.*?)$/s);
+
+    sections.videoPrompt = videoPromptMatch ? videoPromptMatch[1].trim() : content.substring(0, 400);
+    sections.fullScript = fullScriptMatch ? fullScriptMatch[1].trim() : content;
+    sections.callToAction = callToActionMatch ? callToActionMatch[1].trim() : 'Subscribe for more great content!';
+    
+    if (keyPointsMatch) {
+      sections.keyPoints = keyPointsMatch[1]
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => line.replace(/^[-•*]\s*/, '').trim())
+        .slice(0, 5);
+    }
+
+  } catch (error) {
+    console.error('Error parsing generated content:', error);
+    sections.videoPrompt = content.substring(0, 400);
+    sections.fullScript = content;
+    sections.keyPoints = ['Key insight from content'];
+    sections.callToAction = 'Subscribe for more updates!';
+  }
+
+  return sections;
+}
+
+async function generateSynchronizedAudio(event: any): Promise<{
+  s3Key: string;
+  jobId: string;
+  duration: number;
+}> {
+  console.log('Generating synchronized audio narration');
+  
+  try {
+    const { PollyClient, StartSpeechSynthesisTaskCommand } = 
+      await import('@aws-sdk/client-polly');
+
+    const polly = new PollyClient({
+      region: process.env.AWS_REGION || 'us-east-1'
+    });
+
+    // Get voice settings for topic
+    const voiceSettings = getTopicVoiceSettings(event.topic, event.audioConfig || {});
+    
+    // Create SSML with proper timing for video synchronization
+    const ssmlScript = createTimedSSML(event.script, event.duration, voiceSettings);
+    
+    const s3OutputKey = `audio/${event.topic}/${event.trendId}_${Date.now()}.mp3`;
+
+    const response = await polly.send(new StartSpeechSynthesisTaskCommand({
+      Text: ssmlScript,
+      TextType: 'ssml',
+      VoiceId: voiceSettings.voiceId as any,
+      OutputFormat: 'mp3',
+      Engine: 'neural',
+      OutputS3BucketName: process.env.VIDEO_BUCKET,
+      OutputS3KeyPrefix: `audio/${event.topic}/`,
+      SampleRate: '24000'
+    }));
+
+    console.log('Synchronized audio generation started', { 
+      taskId: response.SynthesisTask?.TaskId,
+      s3OutputKey,
+      voiceId: voiceSettings.voiceId
+    });
+
+    return {
+      s3Key: s3OutputKey,
+      jobId: response.SynthesisTask?.TaskId || 'unknown',
+      duration: event.duration
+    };
+
+  } catch (error) {
+    console.error('Synchronized audio generation failed', error);
+    throw error;
+  }
+}
+
+function createTimedSSML(script: string, videoDuration: number, voiceSettings: any): string {
+  // Create SSML with proper pacing for video synchronization
+  const words = script.split(' ');
+  const wordsPerSecond = 2.5; // Average speaking rate
+  const targetWords = Math.floor(videoDuration * wordsPerSecond);
+  
+  // Adjust script length to match video duration
+  let adjustedScript = script;
+  if (words.length > targetWords) {
+    adjustedScript = words.slice(0, targetWords).join(' ') + '...';
+  }
+  
+  // Add strategic pauses for better synchronization
+  const sentences = adjustedScript.split(/[.!?]+/).filter(s => s.trim());
+  const pauseBetweenSentences = Math.max(0.5, (videoDuration - sentences.length * 2) / sentences.length);
+  
+  const timedSentences = sentences.map(sentence => 
+    `${sentence.trim()}.<break time="${pauseBetweenSentences}s"/>`
+  ).join(' ');
+
+  return `
+    <speak>
+      <break time="0.5s"/>
+      ${timedSentences}
+      <break time="1s"/>
+    </speak>
+  `.trim();
+}
+
+async function generateSubtitles(subtitleConfig: {
+  script: string;
+  duration: number;
+  s3Key: string;
+}): Promise<{
+  s3Key: string;
+  srtContent: string;
+}> {
+  console.log('Generating subtitles for accessibility');
+  
+  try {
+    // Create SRT format subtitles
+    const srtContent = createSRTSubtitles(subtitleConfig.script, subtitleConfig.duration);
+    
+    // Upload to S3
+    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+    const s3Client = new S3Client({ region: process.env.AWS_REGION });
+    
+    await s3Client.send(new PutObjectCommand({
+      Bucket: process.env.VIDEO_BUCKET,
+      Key: subtitleConfig.s3Key,
+      Body: srtContent,
+      ContentType: 'text/plain'
+    }));
+
+    console.log('Subtitles generated and uploaded', { s3Key: subtitleConfig.s3Key });
+
+    return {
+      s3Key: subtitleConfig.s3Key,
+      srtContent
+    };
+
+  } catch (error) {
+    console.error('Subtitle generation failed:', error);
+    throw error;
+  }
+}
+
+function createSRTSubtitles(script: string, duration: number): string {
+  const sentences = script.split(/[.!?]+/).filter(s => s.trim());
+  const timePerSentence = duration / sentences.length;
+  
+  let srtContent = '';
+  let currentTime = 0;
+  
+  sentences.forEach((sentence, index) => {
+    const startTime = formatSRTTime(currentTime);
+    const endTime = formatSRTTime(currentTime + timePerSentence);
+    
+    srtContent += `${index + 1}\n`;
+    srtContent += `${startTime} --> ${endTime}\n`;
+    srtContent += `${sentence.trim()}.\n\n`;
+    
+    currentTime += timePerSentence;
+  });
+  
+  return srtContent;
+}
+
+function formatSRTTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const milliseconds = Math.floor((seconds % 1) * 1000);
+  
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
 }
 
 function getTopicVoiceSettings(topic: string, audioConfig: any): {

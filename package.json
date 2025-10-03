@@ -6,7 +6,7 @@
   "scripts": {
     "build": "npm run build:video-generator && npm run build:content-analyzer && npm run build:youtube-uploader",
     "build:video-generator": "cd lambda/video-generator && npm run build",
-    "build:content-analyzer": "cd lambda/content-analyzer && npm run build", 
+    "build:content-analyzer": "cd lambda/content-analyzer && npm run build",
     "build:youtube-uploader": "cd lambda/youtube-uploader && npm run build",
     "test": "npm run test:generation && npm run test:upload && npm run test:pipeline",
     "test:generation": "node generate-first-video.js",
@@ -14,6 +14,10 @@
     "test:pipeline": "node complete-pipeline-test.js",
     "test:s3": "node test-s3-path-fix.js",
     "check:s3": "node check-s3-files.js",
+    "test:enhanced": "node test-enhanced-content.js",
+    "deploy:scheduler": "node deploy-scheduler.js",
+    "manage:scheduler": "node manage-scheduler.js",
+    "verify:scheduler": "node verify-scheduler.js",
     "deploy": "echo 'Deploy script - configure with your preferred deployment method'",
     "start": "node generate-first-video.js",
     "dev": "npm run build && npm run test:generation",
@@ -24,7 +28,7 @@
   },
   "keywords": [
     "youtube",
-    "automation", 
+    "automation",
     "ai",
     "video-generation",
     "aws",
@@ -50,18 +54,20 @@
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.0.0",
+    "@aws-sdk/client-cloudformation": "^3.902.0",
+    "@aws-sdk/client-cloudwatch": "^3.0.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/client-polly": "^3.0.0",
     "@aws-sdk/client-s3": "^3.0.0",
-    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-scheduler": "^3.901.0",
     "@aws-sdk/client-secrets-manager": "^3.0.0",
-    "@aws-sdk/client-cloudwatch": "^3.0.0",
     "googleapis": "^128.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
     "eslint": "^8.0.0",
-    "prettier": "^3.0.0"
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
   },
   "funding": {
     "type": "github",

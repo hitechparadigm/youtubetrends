@@ -1,0 +1,377 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "EventBridge Scheduler for YouTube Automation Platform - Daily Video Generation",
+  "Parameters": {
+    "Environment": {
+      "Type": "String",
+      "Default": "production",
+      "AllowedValues": ["development", "staging", "production"],
+      "Description": "Environment name for resource naming"
+    },
+    "StepFunctionArn": {
+      "Type": "String",
+      "Description": "ARN of the YouTube automation Step Function workflow"
+    },
+    "ScheduleTimezone": {
+      "Type": "String",
+      "Default": "America/New_York",
+      "Description": "Timezone for scheduled executions"
+    }
+  },
+  "Resources": {
+    "DailyTrendAnalysisSchedule": {
+      "Type": "AWS::Scheduler::Schedule",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "youtube-automation-trend-analysis-${Environment}"
+        },
+        "Description": "Daily trend analysis and topic discovery for YouTube content",
+        "State": "ENABLED",
+        "ScheduleExpression": "cron(0 8 * * ? *)",
+        "ScheduleExpressionTimezone": {
+          "Ref": "ScheduleTimezone"
+        },
+        "FlexibleTimeWindow": {
+          "Mode": "FLEXIBLE",
+          "MaximumWindowInMinutes": 30
+        },
+        "Target": {
+          "Arn": {
+            "Ref": "StepFunctionArn"
+          },
+          "RoleArn": {
+            "Fn::GetAtt": ["SchedulerExecutionRole", "Arn"]
+          },
+          "Input": {
+            "Fn::Sub": [
+              "{\"executionType\": \"scheduled\", \"trigger\": \"daily-trend-analysis\", \"timestamp\": \"${timestamp}\", \"config\": {\"topics\": [\"technology\", \"investing\", \"education\"], \"maxVideos\": 3, \"priority\": \"high\"}}",
+              {
+                "timestamp": "2025-10-03T08:00:00Z"
+              }
+            ]
+          },
+          "RetryPolicy": {
+            "MaximumRetryAttempts": 3,
+            "MaximumEventAge": 3600
+          },
+          "DeadLetterConfig": {
+            "Arn": {
+              "Fn::GetAtt": ["SchedulerDeadLetterQueue", "Arn"]
+            }
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Service",
+            "Value": "youtube-automation"
+          },
+          {
+            "Key": "Component",
+            "Value": "scheduler"
+          }
+        ]
+      }
+    },
+    "DailyVideoGenerationSchedule": {
+      "Type": "AWS::Scheduler::Schedule",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "youtube-automation-video-generation-${Environment}"
+        },
+        "Description": "Daily video generation and upload for trending topics",
+        "State": "ENABLED",
+        "ScheduleExpression": "cron(0 2 * * ? *)",
+        "ScheduleExpressionTimezone": {
+          "Ref": "ScheduleTimezone"
+        },
+        "FlexibleTimeWindow": {
+          "Mode": "FLEXIBLE",
+          "MaximumWindowInMinutes": 60
+        },
+        "Target": {
+          "Arn": {
+            "Ref": "StepFunctionArn"
+          },
+          "RoleArn": {
+            "Fn::GetAtt": ["SchedulerExecutionRole", "Arn"]
+          },
+          "Input": {
+            "Fn::Sub": [
+              "{\"executionType\": \"scheduled\", \"trigger\": \"daily-video-generation\", \"timestamp\": \"${timestamp}\", \"config\": {\"generateVideos\": true, \"uploadToYouTube\": true, \"topics\": [\"technology\", \"investing\", \"education\"], \"videoLength\": 300, \"quality\": \"high\"}}",
+              {
+                "timestamp": "2025-10-03T02:00:00Z"
+              }
+            ]
+          },
+          "RetryPolicy": {
+            "MaximumRetryAttempts": 2,
+            "MaximumEventAge": 7200
+          },
+          "DeadLetterConfig": {
+            "Arn": {
+              "Fn::GetAtt": ["SchedulerDeadLetterQueue", "Arn"]
+            }
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Service",
+            "Value": "youtube-automation"
+          },
+          {
+            "Key": "Component",
+            "Value": "scheduler"
+          }
+        ]
+      }
+    },
+    "WeeklyPerformanceAnalysisSchedule": {
+      "Type": "AWS::Scheduler::Schedule",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "youtube-automation-performance-analysis-${Environment}"
+        },
+        "Description": "Weekly performance analysis and optimization recommendations",
+        "State": "ENABLED",
+        "ScheduleExpression": "cron(0 10 ? * SUN *)",
+        "ScheduleExpressionTimezone": {
+          "Ref": "ScheduleTimezone"
+        },
+        "FlexibleTimeWindow": {
+          "Mode": "FLEXIBLE",
+          "MaximumWindowInMinutes": 120
+        },
+        "Target": {
+          "Arn": {
+            "Ref": "StepFunctionArn"
+          },
+          "RoleArn": {
+            "Fn::GetAtt": ["SchedulerExecutionRole", "Arn"]
+          },
+          "Input": "{\"executionType\": \"scheduled\", \"trigger\": \"weekly-performance-analysis\", \"config\": {\"analyzePerformance\": true, \"generateReport\": true, \"optimizeStrategy\": true}}",
+          "RetryPolicy": {
+            "MaximumRetryAttempts": 1,
+            "MaximumEventAge": 3600
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Service",
+            "Value": "youtube-automation"
+          },
+          {
+            "Key": "Component",
+            "Value": "scheduler"
+          }
+        ]
+      }
+    },
+    "SchedulerExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {
+          "Fn::Sub": "youtube-automation-scheduler-role-${Environment}"
+        },
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "scheduler.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "StepFunctionExecutionPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "states:StartExecution"
+                  ],
+                  "Resource": {
+                    "Ref": "StepFunctionArn"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "DeadLetterQueuePolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:SendMessage"
+                  ],
+                  "Resource": {
+                    "Fn::GetAtt": ["SchedulerDeadLetterQueue", "Arn"]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "CloudWatchLogsPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "arn:aws:logs:*:*:*"
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Service",
+            "Value": "youtube-automation"
+          }
+        ]
+      }
+    },
+    "SchedulerDeadLetterQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": {
+          "Fn::Sub": "youtube-automation-scheduler-dlq-${Environment}"
+        },
+        "MessageRetentionPeriod": 1209600,
+        "VisibilityTimeoutSeconds": 60,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Service",
+            "Value": "youtube-automation"
+          },
+          {
+            "Key": "Component",
+            "Value": "scheduler-dlq"
+          }
+        ]
+      }
+    },
+    "SchedulerCloudWatchLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Sub": "/aws/scheduler/youtube-automation-${Environment}"
+        },
+        "RetentionInDays": 30,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Service",
+            "Value": "youtube-automation"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "DailyTrendAnalysisScheduleArn": {
+      "Description": "ARN of the daily trend analysis schedule",
+      "Value": {
+        "Fn::GetAtt": ["DailyTrendAnalysisSchedule", "Arn"]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-DailyTrendAnalysisScheduleArn"
+        }
+      }
+    },
+    "DailyVideoGenerationScheduleArn": {
+      "Description": "ARN of the daily video generation schedule",
+      "Value": {
+        "Fn::GetAtt": ["DailyVideoGenerationSchedule", "Arn"]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-DailyVideoGenerationScheduleArn"
+        }
+      }
+    },
+    "WeeklyPerformanceAnalysisScheduleArn": {
+      "Description": "ARN of the weekly performance analysis schedule",
+      "Value": {
+        "Fn::GetAtt": ["WeeklyPerformanceAnalysisSchedule", "Arn"]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-WeeklyPerformanceAnalysisScheduleArn"
+        }
+      }
+    },
+    "SchedulerExecutionRoleArn": {
+      "Description": "ARN of the scheduler execution role",
+      "Value": {
+        "Fn::GetAtt": ["SchedulerExecutionRole", "Arn"]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-SchedulerExecutionRoleArn"
+        }
+      }
+    },
+    "SchedulerDeadLetterQueueUrl": {
+      "Description": "URL of the scheduler dead letter queue",
+      "Value": {
+        "Ref": "SchedulerDeadLetterQueue"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-SchedulerDeadLetterQueueUrl"
+        }
+      }
+    }
+  }
+}

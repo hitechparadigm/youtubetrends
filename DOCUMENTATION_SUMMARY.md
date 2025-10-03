@@ -4,7 +4,7 @@
 
 The YouTube Automation Platform documentation has been streamlined to include only essential files:
 
-### 🎯 Core Documentation (6 files)
+### 🎯 Core Documentation (8 files)
 
 | File | Purpose | Audience |
 |------|---------|----------|
@@ -14,6 +14,8 @@ The YouTube Automation Platform documentation has been streamlined to include on
 | **CHANGELOG.md** | Version history and release notes | All users |
 | **PROJECT_METRICS.md** | Performance metrics and business value | Stakeholders |
 | **docs/ERROR_HANDLING_AND_RECOVERY.md** | Troubleshooting and error recovery | Support/Developers |
+| **docs/ENHANCED_CONTENT_GENERATION.md** | Enhanced content features guide | Developers/Users |
+| **docs/SCHEDULING_GUIDE.md** | Automated scheduling setup and management | DevOps/Developers |
 
 ### 📊 Documentation Coverage
 
@@ -69,11 +71,12 @@ The following files were removed as their content is covered in the essential do
 - **Maintenance burden**: High
 - **User confusion**: High
 
-### After Cleanup
-- **Total .md files**: 6
+### After Cleanup + Enhancements
+- **Total .md files**: 8
 - **Redundancy**: 0%
 - **Maintenance burden**: Low
 - **User clarity**: High
+- **Feature coverage**: Complete (including enhanced features)
 
 ## 🎯 Documentation Standards
 

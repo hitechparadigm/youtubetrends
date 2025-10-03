@@ -95,48 +95,45 @@ graph TB
 }
 ```
 
-**VideoGenerationState**
+**EnhancedContentGenerationState**
 ```json
 {
   "Type": "Task",
-  "Resource": "arn:aws:lambda:region:account:function:video-generator",
+  "Resource": "arn:aws:lambda:region:account:function:enhanced-content-generator",
   "Parameters": {
-    "script.$": "$.scriptContent",
+    "trends.$": "$.detectedTrends",
     "topic.$": "$.topic",
+    "trendId.$": "$.trendId",
     "videoConfig": {
       "fps": 24,
-      "durationSeconds": 600,
-      "dimension": "1920x1080",
+      "durationSeconds": 300,
+      "dimension": "1280x720",
       "includeAudio": true,
-      "audioConfig": {
-        "voice": "neural",
-        "speed": "medium",
-        "language": "en-US"
-      }
+      "includeSubtitles": true
     }
   },
   "TimeoutSeconds": 3600,
-  "Next": "AudioGenerationState"
+  "Next": "VideoProcessingState"
 }
 ```
 
-**AudioGenerationState**
+**TrendBasedContentAnalysisState**
 ```json
 {
-  "Type": "Task",
-  "Resource": "arn:aws:lambda:region:account:function:audio-generator",
+  "Type": "Task", 
+  "Resource": "arn:aws:lambda:region:account:function:content-analyzer",
   "Parameters": {
-    "script.$": "$.scriptContent",
+    "trends.$": "$.detectedTrends",
     "topic.$": "$.topic",
-    "audioConfig": {
-      "voice": "neural",
-      "speed": "medium",
-      "language": "en-US",
-      "outputFormat": "mp3"
+    "contentRequirements": {
+      "includeSpecificData": true,
+      "includeActionableAdvice": true,
+      "targetAudience": "general",
+      "contentDepth": "comprehensive"
     }
   },
   "TimeoutSeconds": 1800,
-  "Next": "VideoProcessingState"
+  "Next": "EnhancedContentGenerationState"
 }
 ```
 
@@ -171,31 +168,81 @@ def lambda_handler(event, context):
     """
 ```
 
-**VideoGeneratorFunction**
+**EnhancedVideoGeneratorFunction**
 ```python
 def lambda_handler(event, context):
     """
-    Generates video using Amazon Bedrock Nova Reel
+    Generates video with synchronized audio and subtitles using trend-based content
     
     Input:
     {
-        "script": "string",
+        "trends": ["REIT", "Tesla", "AI stocks"],
+        "topic": "investing", 
+        "trendId": "string",
         "videoConfig": {
             "fps": int,
             "durationSeconds": int,
-            "dimension": "string"
+            "dimension": "string",
+            "includeAudio": bool,
+            "includeSubtitles": bool
         }
     }
     
     Output:
     {
         "videoS3Key": "string",
+        "audioS3Key": "string", 
+        "subtitlesS3Key": "string",
+        "enhancedContent": {
+            "videoPrompt": "string",
+            "fullScript": "string", 
+            "keyPoints": ["string"],
+            "callToAction": "string"
+        },
         "generationJobId": "string",
         "status": "COMPLETED|FAILED",
         "metadata": {
             "duration": int,
             "fileSize": int,
-            "format": "string"
+            "format": "string",
+            "hasAudio": bool,
+            "hasSubtitles": bool
+        }
+    }
+    """
+```
+
+**TrendBasedContentAnalyzerFunction**
+```python
+def lambda_handler(event, context):
+    """
+    Analyzes trends and generates valuable, specific content prompts
+    
+    Input:
+    {
+        "trends": ["REIT", "Tesla", "Quantum Computing"],
+        "topic": "investing|technology|education",
+        "contentRequirements": {
+            "includeSpecificData": bool,
+            "includeActionableAdvice": bool,
+            "targetAudience": "string"
+        }
+    }
+    
+    Output:
+    {
+        "enhancedPrompts": [
+            {
+                "trend": "REIT",
+                "expandedPrompt": "Top 5 REITs to invest in 2025: Analyze Realty Income (O), Digital Realty Trust (DLR), Prologis (PLD), American Tower (AMT), and Crown Castle (CCI). Include dividend yields, growth prospects, and risk analysis.",
+                "keyDataPoints": ["dividend yields", "occupancy rates", "FFO growth"],
+                "actionableAdvice": ["specific investment amounts", "portfolio allocation", "timing strategies"]
+            }
+        ],
+        "contentStrategy": {
+            "primaryFocus": "string",
+            "valueProposition": "string", 
+            "targetKeywords": ["string"]
         }
     }
     """
@@ -274,6 +321,111 @@ def lambda_handler(event, context):
   ]
 }
 ```
+
+## Enhanced Content Generation Architecture
+
+### Trend-Based Content Pipeline
+
+The enhanced content generation system creates valuable, specific content based on actual trending topics rather than generic templates.
+
+```mermaid
+graph TB
+    A[Detected Trends] --> B[Trend Analysis Engine]
+    B --> C[Claude AI Content Generator]
+    C --> D[Enhanced Script Generation]
+    D --> E[Bedrock Nova Reel Video]
+    D --> F[Amazon Polly Synchronized Audio]
+    D --> G[SRT Subtitle Generation]
+    
+    E --> H[S3 Video Storage]
+    F --> I[S3 Audio Storage] 
+    G --> J[S3 Subtitle Storage]
+    
+    H --> K[MediaConvert Audio/Video Sync]
+    I --> K
+    J --> K
+    
+    K --> L[Final YouTube-Ready Video]
+```
+
+### Content Enhancement Process
+
+**Step 1: Trend Expansion**
+- Input: Raw trend keywords (e.g., "REIT", "Tesla")
+- Process: Expand into specific, valuable content topics
+- Output: "Top 5 REITs to invest in 2025 with dividend analysis"
+
+**Step 2: Research Integration**
+- Use Claude AI to research current, factual information
+- Include specific data points (stock tickers, performance metrics)
+- Generate actionable advice and recommendations
+
+**Step 3: Script Structuring**
+- Create 800-1000 word narration scripts
+- Include timestamps and strategic pauses
+- Structure with intro, key points, examples, and call-to-action
+
+**Step 4: Synchronized Production**
+- Generate video prompt (under 400 characters for Bedrock)
+- Create timed SSML for audio synchronization
+- Generate SRT subtitles with proper timing
+
+### Audio Synchronization System
+
+**SSML Timing Control**
+```xml
+<speak>
+  <prosody rate="medium" pitch="medium">
+    <break time="0.5s"/>
+    Welcome to today's investment analysis.
+    <break time="1.0s"/>
+    Today we're examining the top 5 REITs for 2025.
+    <break time="0.8s"/>
+    First, let's look at Realty Income, ticker symbol O.
+    <break time="1.2s"/>
+  </prosody>
+</speak>
+```
+
+**Timing Calculation Algorithm**
+```python
+def calculate_audio_timing(script: str, video_duration: int) -> str:
+    words = script.split()
+    words_per_second = 2.5  # Average speaking rate
+    target_words = int(video_duration * words_per_second)
+    
+    if len(words) > target_words:
+        # Trim script to fit duration
+        script = ' '.join(words[:target_words])
+    
+    sentences = script.split('.')
+    pause_duration = (video_duration - len(sentences) * 2) / len(sentences)
+    
+    return create_timed_ssml(sentences, pause_duration)
+```
+
+### Content Value Framework
+
+**Investing Content Requirements**
+- Specific stock/ETF tickers and symbols
+- Current performance data and metrics
+- Risk analysis and considerations
+- Actionable investment advice with amounts
+- Market timing and strategy recommendations
+
+**Technology Content Requirements**
+- Specific companies and product names
+- Current development status and timelines
+- Impact analysis on consumers and businesses
+- Future predictions with supporting evidence
+- Practical applications and use cases
+
+**Education Content Requirements**
+- Step-by-step learning objectives
+- Real-world examples and case studies
+- Measurable outcomes and assessments
+- Practical exercises and implementations
+- Resource recommendations and next steps
 
 ## Data Models
 
