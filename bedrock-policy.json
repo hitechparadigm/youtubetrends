@@ -1,0 +1,19 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "bedrock:InvokeModel",
+                "bedrock:InvokeModelWithResponseStream",
+                "bedrock:StartAsyncInvoke",
+                "bedrock:GetAsyncInvoke",
+                "bedrock:ListAsyncInvokes"
+            ],
+            "Resource": [
+                "arn:aws:bedrock:*:*:model/*",
+                "arn:aws:bedrock:*:*:async-invoke/*"
+            ]
+        }
+    ]
+}

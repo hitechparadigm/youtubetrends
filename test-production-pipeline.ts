@@ -7,7 +7,7 @@
  * using real AWS services (when deployed) or mock services (for testing)
  */
 
-import { StepFunctionsClient, StartExecutionCommand, DescribeExecutionCommand } from '@aws-sdk/client-stepfunctions';
+import { SFNClient, StartExecutionCommand, DescribeExecutionCommand } from '@aws-sdk/client-sfn';
 
 interface ProductionTestConfig {
   useRealServices: boolean;
@@ -62,7 +62,7 @@ async function testWithRealAWS() {
   }
 
   try {
-    const stepFunctions = new StepFunctionsClient({ region: config.region });
+    const stepFunctions = new SFNClient({ region: config.region });
     
     const input = {
       topics: [config.topic],

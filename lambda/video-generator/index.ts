@@ -171,13 +171,17 @@ async function generateVideo(event: VideoGeneratorEvent): Promise<{
       },
       outputDataConfig: {
         s3OutputDataConfig: {
-          s3Uri: `s3://${process.env.VIDEO_BUCKET}/${s3OutputKey}`
+          s3Uri: `s3://${process.env.VIDEO_BUCKET}/videos/`
         }
       }
     }));
 
     const jobId = startResponse.invocationArn!;
     console.log('Bedrock job started', { jobId, s3OutputKey });
+
+    // Extract job ID from ARN for actual S3 path
+    const jobIdFromArn = jobId.split('/').pop() || 'unknown';
+    const actualS3Key = `videos/${jobIdFromArn}/output.mp4`;
 
     // Poll for completion (with timeout)
     const maxWaitTime = 30 * 60 * 1000; // 30 minutes
@@ -194,11 +198,11 @@ async function generateVideo(event: VideoGeneratorEvent): Promise<{
       if (statusResponse.status === 'Completed') {
         console.log('Video generation completed successfully');
         
-        // Get file metadata from S3
-        const metadata = await getS3FileMetadata(s3OutputKey);
+        // Get file metadata from S3 using actual path
+        const metadata = await getS3FileMetadata(actualS3Key);
         
         return {
-          s3Key: s3OutputKey,
+          s3Key: actualS3Key, // Use the actual S3 path where Bedrock stores the file
           jobId,
           duration: event.videoConfig.durationSeconds,
           fileSize: metadata.size,
@@ -237,6 +241,9 @@ async function generateAudio(event: VideoGeneratorEvent): Promise<{
   jobId: string;
 }> {
   console.log('Starting audio generation with Amazon Polly');
+  
+  // Use narration script if provided, otherwise use the visual prompt
+  const audioScript = (event as any).narrationScript || event.scriptPrompt;
 
   // Mock mode for testing
   if (process.env.MOCK_VIDEO_GENERATION === 'true') {
@@ -271,24 +278,41 @@ async function generateAudio(event: VideoGeneratorEvent): Promise<{
     
     const s3OutputKey = `audio/${event.topic}/${event.trendId}_${Date.now()}.mp3`;
 
-    // Generate SSML for better audio control
-    const ssmlText = generateSSML(event.scriptPrompt, voiceSettings);
+    // Generate SSML for better audio control using the audio script
+    const ssmlText = generateSSML(audioScript, voiceSettings);
 
     // Validate required environment variables
     if (!process.env.VIDEO_BUCKET) {
       throw new Error('VIDEO_BUCKET environment variable is required');
     }
 
-    const response = await polly.send(new StartSpeechSynthesisTaskCommand({
-      Text: ssmlText,
-      TextType: 'ssml',
-      VoiceId: voiceSettings.voiceId as any,
-      OutputFormat: 'mp3',
-      Engine: 'neural',
-      OutputS3BucketName: process.env.VIDEO_BUCKET,
-      OutputS3KeyPrefix: `audio/${event.topic}/`,
-      SampleRate: '24000'
-    }));
+    // Try neural engine first, fallback to standard if needed
+    let response;
+    try {
+      response = await polly.send(new StartSpeechSynthesisTaskCommand({
+        Text: ssmlText,
+        TextType: 'ssml',
+        VoiceId: voiceSettings.voiceId as any,
+        OutputFormat: 'mp3',
+        Engine: 'neural',
+        OutputS3BucketName: process.env.VIDEO_BUCKET,
+        OutputS3KeyPrefix: `audio/${event.topic}/`,
+        SampleRate: '24000'
+      }));
+    } catch (neuralError) {
+      console.log('Neural engine failed, trying standard engine', neuralError);
+      // Fallback to standard engine with plain text
+      response = await polly.send(new StartSpeechSynthesisTaskCommand({
+        Text: audioScript, // Use audio script instead of visual prompt
+        TextType: 'text',
+        VoiceId: voiceSettings.voiceId as any,
+        OutputFormat: 'mp3',
+        Engine: 'standard',
+        OutputS3BucketName: process.env.VIDEO_BUCKET,
+        OutputS3KeyPrefix: `audio/${event.topic}/`,
+        SampleRate: '22050'
+      }));
+    }
 
     console.log('Polly job started', { 
       taskId: response.SynthesisTask?.TaskId,
@@ -320,28 +344,19 @@ async function generateAudio(event: VideoGeneratorEvent): Promise<{
 }
 
 function enhancePromptForTopic(basePrompt: string, topic: string): string {
+  // Keep prompts under 512 characters for Bedrock Nova Reel
   const topicEnhancements: Record<string, string> = {
-    investing: `${basePrompt} Focus on creating visually engaging content about financial markets, 
-      stock charts, investment portfolios, and economic indicators. Include graphics showing 
-      ETF performance, dividend yields, and market trends. Make it professional yet accessible.`,
-    
-    education: `${basePrompt} Create educational visuals with clear diagrams, study materials, 
-      learning environments, and academic success imagery. Include books, digital learning tools, 
-      and inspiring educational settings.`,
-    
-    tourism: `${basePrompt} Showcase beautiful travel destinations, cultural landmarks, 
-      local experiences, and adventure activities. Include stunning landscapes, city views, 
-      cultural sites, and travel-related imagery.`,
-    
-    technology: `${basePrompt} Feature cutting-edge technology, digital interfaces, 
-      innovation labs, and futuristic concepts. Include gadgets, software interfaces, 
-      and tech environments.`,
-    
-    health: `${basePrompt} Show healthy lifestyle imagery, medical concepts, wellness activities, 
-      and health-focused environments. Include fitness, nutrition, and medical imagery.`
+    investing: `${basePrompt} Show financial markets, stock charts, trading floors, and investment graphics.`,
+    education: `${basePrompt} Show classrooms, books, digital learning, and educational technology.`,
+    tourism: `${basePrompt} Show travel destinations, landmarks, landscapes, and cultural sites.`,
+    technology: `${basePrompt} Show futuristic tech, AI interfaces, robots, and innovation labs.`,
+    health: `${basePrompt} Show fitness activities, medical technology, and wellness environments.`
   };
 
-  return topicEnhancements[topic.toLowerCase()] || basePrompt;
+  const enhanced = topicEnhancements[topic.toLowerCase()] || basePrompt;
+  
+  // Ensure we stay under 512 character limit
+  return enhanced.length > 512 ? enhanced.substring(0, 509) + '...' : enhanced;
 }
 
 function getTopicVoiceSettings(topic: string, audioConfig: any): {
@@ -352,22 +367,21 @@ function getTopicVoiceSettings(topic: string, audioConfig: any): {
   const topicVoices: Record<string, { voiceId: string; rate: string; pitch: string }> = {
     investing: { voiceId: 'Matthew', rate: 'medium', pitch: 'medium' }, // Professional male voice
     education: { voiceId: 'Joanna', rate: 'medium', pitch: 'medium' }, // Clear female voice
-    tourism: { voiceId: 'Amy', rate: 'medium', pitch: '+2%' }, // Enthusiastic British voice
-    technology: { voiceId: 'Brian', rate: 'medium', pitch: 'medium' }, // Tech-focused male voice
-    health: { voiceId: 'Kimberly', rate: 'slow', pitch: 'medium' } // Calm, reassuring voice
+    tourism: { voiceId: 'Amy', rate: 'medium', pitch: 'medium' }, // Enthusiastic British voice
+    technology: { voiceId: 'Matthew', rate: 'medium', pitch: 'medium' }, // Professional male voice for tech
+    health: { voiceId: 'Joanna', rate: 'slow', pitch: 'medium' } // Calm, reassuring voice
   };
 
   return topicVoices[topic.toLowerCase()] || topicVoices.education;
 }
 
 function generateSSML(text: string, voiceSettings: any): string {
+  // Simplified SSML compatible with neural voices
   return `
     <speak>
-      <prosody rate="${voiceSettings.rate}" pitch="${voiceSettings.pitch}">
-        <break time="1s"/>
-        ${text}
-        <break time="2s"/>
-      </prosody>
+      <break time="0.5s"/>
+      ${text}
+      <break time="1s"/>
     </speak>
   `.trim();
 }

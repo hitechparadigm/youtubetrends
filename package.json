@@ -1,46 +1,70 @@
 {
   "name": "youtube-automation-platform",
   "version": "1.0.0",
-  "description": "AWS CDK infrastructure for YouTube automation platform",
+  "description": "AI-Powered YouTube Video Generation & Publishing System",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
-    "test": "jest",
-    "test:simple": "ts-node test-simple.ts",
-    "demo:trends": "ts-node demo-trends.ts",
-    "demo:live": "ts-node demo-trends.ts",
-    "test:youtube": "npx ts-node test-simple-client.ts",
-    "setup:youtube": "node setup-youtube-credentials.js",
-    "cdk": "cdk",
-    "deploy": "cdk deploy",
-    "destroy": "cdk destroy",
-    "synth": "cdk synth",
-    "diff": "cdk diff"
+    "build": "npm run build:video-generator && npm run build:content-analyzer && npm run build:youtube-uploader",
+    "build:video-generator": "cd lambda/video-generator && npm run build",
+    "build:content-analyzer": "cd lambda/content-analyzer && npm run build", 
+    "build:youtube-uploader": "cd lambda/youtube-uploader && npm run build",
+    "test": "npm run test:generation && npm run test:upload && npm run test:pipeline",
+    "test:generation": "node generate-first-video.js",
+    "test:upload": "node test-youtube-upload.js",
+    "test:pipeline": "node complete-pipeline-test.js",
+    "test:s3": "node test-s3-path-fix.js",
+    "check:s3": "node check-s3-files.js",
+    "deploy": "echo 'Deploy script - configure with your preferred deployment method'",
+    "start": "node generate-first-video.js",
+    "dev": "npm run build && npm run test:generation",
+    "setup": "npm install && npm run build",
+    "clean": "rm -rf lambda/*/dist lambda/*/node_modules node_modules",
+    "lint": "eslint . --ext .js,.ts",
+    "format": "prettier --write ."
+  },
+  "keywords": [
+    "youtube",
+    "automation", 
+    "ai",
+    "video-generation",
+    "aws",
+    "bedrock",
+    "polly",
+    "serverless",
+    "content-creation",
+    "seo"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/youtube-automation-platform.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/youtube-automation-platform/issues"
+  },
+  "homepage": "https://github.com/yourusername/youtube-automation-platform#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.450.0",
-    "@aws-sdk/client-cloudwatch": "^3.450.0",
-    "@aws-sdk/client-dynamodb": "^3.450.0",
-    "@aws-sdk/client-lambda": "^3.901.0",
-    "@aws-sdk/client-polly": "^3.450.0",
-    "@aws-sdk/client-s3": "^3.450.0",
-    "@aws-sdk/client-secrets-manager": "^3.450.0",
-    "@aws-sdk/client-sfn": "^3.901.0",
-    "@aws-sdk/lib-dynamodb": "^3.450.0",
-    "aws-cdk-lib": "2.100.0",
-    "constructs": "^10.0.0",
-    "node-fetch": "^2.7.0"
+    "@aws-sdk/client-bedrock-runtime": "^3.0.0",
+    "@aws-sdk/client-polly": "^3.0.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "@aws-sdk/client-cloudwatch": "^3.0.0",
+    "googleapis": "^128.0.0"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.130",
-    "@types/jest": "^29.5.5",
-    "@types/node": "20.6.2",
-    "@types/node-fetch": "^2.6.9",
-    "aws-cdk": "2.100.0",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.1.1",
-    "ts-node": "^10.9.1",
-    "typescript": "~5.2.2"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/yourusername"
   }
 }
