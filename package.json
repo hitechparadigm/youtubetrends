@@ -8,6 +8,7 @@
     "watch": "tsc -w",
     "test": "jest",
     "test:simple": "ts-node test-simple.ts",
+    "demo:trends": "ts-node demo-trends.ts",
     "cdk": "cdk",
     "deploy": "cdk deploy",
     "destroy": "cdk destroy",
