@@ -11,11 +11,14 @@
 
 - [ ] 2. Create DynamoDB tables and data access layer
 
-  - [ ] 2.1 Implement DynamoDB table schemas for TrendAnalytics and VideoMetadata
+  - [x] 2.1 Implement DynamoDB table schemas for TrendAnalytics and VideoMetadata
+
+
 
     - Create tables with proper partition keys, sort keys, and GSI configurations
     - Set up on-demand billing and auto-scaling policies
     - _Requirements: 1.2, 5.2, 7.3_
+
 
   - [ ] 2.2 Build data access layer with repository pattern
 
