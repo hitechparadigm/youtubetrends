@@ -1,0 +1,654 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Cost-effective data storage infrastructure for YouTube Automation Platform trends, prompts, and analytics",
+  "Parameters": {
+    "Environment": {
+      "Type": "String",
+      "Default": "prod",
+      "AllowedValues": ["dev", "staging", "prod"],
+      "Description": "Environment name"
+    }
+  },
+  "Resources": {
+    "TrendsHotTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": {
+          "Fn::Sub": "youtube-automation-trends-hot-${Environment}"
+        },
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "trendId",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "categoryDate",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "urgencyDate", 
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "discoveredAt",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "trendId",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "CategoryDateIndex",
+            "KeySchema": [
+              {
+                "AttributeName": "categoryDate",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "discoveredAt",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          },
+          {
+            "IndexName": "UrgencyDateIndex",
+            "KeySchema": [
+              {
+                "AttributeName": "urgencyDate",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "discoveredAt",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ],
+        "TimeToLiveSpecification": {
+          "AttributeName": "ttl",
+          "Enabled": true
+        },
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "YouTubeAutomation"
+          },
+          {
+            "Key": "DataType",
+            "Value": "Trends"
+          },
+          {
+            "Key": "Tier",
+            "Value": "Hot"
+          },
+          {
+            "Key": "RetentionDays",
+            "Value": "7"
+          }
+        ]
+      }
+    },
+    "PromptsHotTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": {
+          "Fn::Sub": "youtube-automation-prompts-hot-${Environment}"
+        },
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "promptId",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "trendDate",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "categoryDate",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "generatedAt",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "promptId",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "TrendDateIndex",
+            "KeySchema": [
+              {
+                "AttributeName": "trendDate",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "generatedAt",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          },
+          {
+            "IndexName": "CategoryDateIndex",
+            "KeySchema": [
+              {
+                "AttributeName": "categoryDate",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "generatedAt",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ],
+        "TimeToLiveSpecification": {
+          "AttributeName": "ttl",
+          "Enabled": true
+        },
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "YouTubeAutomation"
+          },
+          {
+            "Key": "DataType",
+            "Value": "Prompts"
+          },
+          {
+            "Key": "Tier",
+            "Value": "Hot"
+          },
+          {
+            "Key": "RetentionDays",
+            "Value": "7"
+          }
+        ]
+      }
+    },
+    "VideosHotTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": {
+          "Fn::Sub": "youtube-automation-videos-hot-${Environment}"
+        },
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "videoId",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "trendDate",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "categoryDate",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "createdAt",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "videoId",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "TrendDateIndex",
+            "KeySchema": [
+              {
+                "AttributeName": "trendDate",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "createdAt",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          },
+          {
+            "IndexName": "CategoryDateIndex",
+            "KeySchema": [
+              {
+                "AttributeName": "categoryDate",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "createdAt",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ],
+        "TimeToLiveSpecification": {
+          "AttributeName": "ttl",
+          "Enabled": true
+        },
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "YouTubeAutomation"
+          },
+          {
+            "Key": "DataType",
+            "Value": "Videos"
+          },
+          {
+            "Key": "Tier",
+            "Value": "Hot"
+          },
+          {
+            "Key": "RetentionDays",
+            "Value": "30"
+          }
+        ]
+      }
+    },
+    "AnalyticsTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": {
+          "Fn::Sub": "youtube-automation-analytics-${Environment}"
+        },
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "reportId",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "reportType",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "createdAt",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "reportId",
+            "KeyType": "HASH"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "ReportTypeIndex",
+            "KeySchema": [
+              {
+                "AttributeName": "reportType",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "createdAt",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ],
+        "TimeToLiveSpecification": {
+          "AttributeName": "ttl",
+          "Enabled": true
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "YouTubeAutomation"
+          },
+          {
+            "Key": "DataType",
+            "Value": "Analytics"
+          },
+          {
+            "Key": "Tier",
+            "Value": "Warm"
+          },
+          {
+            "Key": "RetentionDays",
+            "Value": "365"
+          }
+        ]
+      }
+    },
+    "DataArchiveBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": {
+          "Fn::Sub": "youtube-automation-data-archive-${Environment}-${AWS::AccountId}"
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "ArchiveLifecycle",
+              "Status": "Enabled",
+              "Transitions": [
+                {
+                  "Days": 30,
+                  "StorageClass": "STANDARD_IA"
+                },
+                {
+                  "Days": 90,
+                  "StorageClass": "GLACIER"
+                },
+                {
+                  "Days": 365,
+                  "StorageClass": "DEEP_ARCHIVE"
+                }
+              ]
+            }
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "NotificationConfiguration": {
+          "CloudWatchConfigurations": [
+            {
+              "Event": "s3:ObjectCreated:*",
+              "CloudWatchConfiguration": {
+                "LogGroupName": {
+                  "Ref": "DataArchiveLogGroup"
+                }
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "YouTubeAutomation"
+          },
+          {
+            "Key": "Purpose",
+            "Value": "DataArchive"
+          },
+          {
+            "Key": "CostOptimized",
+            "Value": "true"
+          }
+        ]
+      }
+    },
+    "AnalyticsExportsBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": {
+          "Fn::Sub": "youtube-automation-analytics-exports-${Environment}-${AWS::AccountId}"
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "AnalyticsLifecycle",
+              "Status": "Enabled",
+              "ExpirationInDays": 90,
+              "Transitions": [
+                {
+                  "Days": 30,
+                  "StorageClass": "STANDARD_IA"
+                }
+              ]
+            }
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "YouTubeAutomation"
+          },
+          {
+            "Key": "Purpose",
+            "Value": "AnalyticsExports"
+          }
+        ]
+      }
+    },
+    "DataArchiveLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Sub": "/aws/s3/youtube-automation-data-archive-${Environment}"
+        },
+        "RetentionInDays": 30
+      }
+    },
+    "DataStorageManagerRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {
+          "Fn::Sub": "youtube-automation-data-storage-role-${Environment}"
+        },
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "DataStoragePolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:PutItem",
+                    "dynamodb:GetItem",
+                    "dynamodb:Query",
+                    "dynamodb:Scan",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:DeleteItem",
+                    "dynamodb:BatchWriteItem"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": ["TrendsHotTable", "Arn"]
+                    },
+                    {
+                      "Fn::Sub": "${TrendsHotTable.Arn}/index/*"
+                    },
+                    {
+                      "Fn::GetAtt": ["PromptsHotTable", "Arn"]
+                    },
+                    {
+                      "Fn::Sub": "${PromptsHotTable.Arn}/index/*"
+                    },
+                    {
+                      "Fn::GetAtt": ["VideosHotTable", "Arn"]
+                    },
+                    {
+                      "Fn::Sub": "${VideosHotTable.Arn}/index/*"
+                    },
+                    {
+                      "Fn::GetAtt": ["AnalyticsTable", "Arn"]
+                    },
+                    {
+                      "Fn::Sub": "${AnalyticsTable.Arn}/index/*"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:DeleteObject",
+                    "s3:ListBucket"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": ["DataArchiveBucket", "Arn"]
+                    },
+                    {
+                      "Fn::Sub": "${DataArchiveBucket.Arn}/*"
+                    },
+                    {
+                      "Fn::GetAtt": ["AnalyticsExportsBucket", "Arn"]
+                    },
+                    {
+                      "Fn::Sub": "${AnalyticsExportsBucket.Arn}/*"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "cloudwatch:PutMetricData"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:SelectObjectContent"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "${DataArchiveBucket.Arn}/*"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "TrendsHotTableName": {
+      "Description": "Name of the trends hot table",
+      "Value": {
+        "Ref": "TrendsHotTable"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-TrendsHotTable"
+        }
+      }
+    },
+    "PromptsHotTableName": {
+      "Description": "Name of the prompts hot table",
+      "Value": {
+        "Ref": "PromptsHotTable"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PromptsHotTable"
+        }
+      }
+    },
+    "VideosHotTableName": {
+      "Description": "Name of the videos hot table",
+      "Value": {
+        "Ref": "VideosHotTable"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-VideosHotTable"
+        }
+      }
+    },
+    "DataArchiveBucketName": {
+      "Description": "Name of the data archive S3 bucket",
+      "Value": {
+        "Ref": "DataArchiveBucket"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-DataArchiveBucket"
+        }
+      }
+    },
+    "AnalyticsExportsBucketName": {
+      "Description": "Name of the analytics exports S3 bucket",
+      "Value": {
+        "Ref": "AnalyticsExportsBucket"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-AnalyticsExportsBucket"
+        }
+      }
+    },
+    "EstimatedMonthlyCost": {
+      "Description": "Estimated monthly cost for typical usage",
+      "Value": "$10-25 (DynamoDB: $5-15, S3: $2-5, CloudWatch: $1-3, Data Transfer: $1-2)"
+    }
+  }
+}

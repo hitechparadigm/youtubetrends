@@ -15,11 +15,15 @@ export interface VideoGeneratorEvent {
     dimension: string;
     quality: string;
     includeAudio: boolean;
+    format?: 'short' | 'standard' | 'long'; // 6s, 30s, 60s+
+    category?: 'technology' | 'finance' | 'education' | 'health' | 'general';
   };
   audioConfig?: {
     voice: string;
     speed: string;
     language: string;
+    ssmlEnabled?: boolean;
+    timingMarks?: boolean;
   };
 }
 
@@ -28,6 +32,7 @@ export interface VideoGeneratorResponse {
   videoS3Key?: string;
   audioS3Key?: string;
   subtitlesS3Key?: string;
+  thumbnailS3Key?: string;
   bedrockJobId?: string;
   pollyJobId?: string;
   enhancedContent?: {
@@ -35,6 +40,8 @@ export interface VideoGeneratorResponse {
     fullScript: string;
     keyPoints: string[];
     callToAction: string;
+    category: string;
+    targetDuration: number;
   };
   metadata: {
     duration: number;
@@ -42,6 +49,8 @@ export interface VideoGeneratorResponse {
     format: string;
     hasAudio: boolean;
     hasSubtitles: boolean;
+    hasThumbnail: boolean;
+    category: string;
   };
   generationCost: number;
   executionTime: number;

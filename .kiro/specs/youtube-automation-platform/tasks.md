@@ -230,6 +230,8 @@
     - Create configuration service for managing topics, prompts, and video parameters
     - Add support for topic-specific settings (education, investing, tourism, technology, health, finance)
     - Implement configuration validation and default value management
+
+
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
   - [x] 10.2 Implement audio generation and video enhancement
@@ -246,7 +248,9 @@
   - [ ] 10.3 Build configuration API and management interface
     - Create API Gateway endpoints for configuration management
     - Implement CRUD operations for topics, prompts, and video settings
+
     - Add configuration validation and cost impact estimation
+
     - Build simple web interface for non-technical configuration management
     - _Requirements: 8.1, 8.2, 8.7_
 
