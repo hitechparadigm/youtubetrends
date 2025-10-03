@@ -282,14 +282,14 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
         TREND_ANALYTICS_TABLE_NAME: this.trendAnalyticsTable.tableName,
         VIDEO_METADATA_TABLE_NAME: this.videoMetadataTable.tableName,
         VIDEO_BUCKET: this.videoBucket.bucketName,
-        YOUTUBE_CREDENTIALS_SECRET: this.youtubeCredentialsSecret.secretName,
-        AWS_REGION: this.region
+        YOUTUBE_CREDENTIALS_SECRET: this.youtubeCredentialsSecret.secretName
       },
       role: lambdaExecutionRole,
       vpc: this.vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PUBLIC
-      }
+      },
+      allowPublicSubnet: true
     });
 
     // Content Analyzer Function
@@ -302,8 +302,7 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       memorySize: 512,
       environment: {
         TREND_ANALYTICS_TABLE_NAME: this.trendAnalyticsTable.tableName,
-        CONTENT_ANALYSIS_TABLE: 'ContentAnalysis',
-        AWS_REGION: this.region
+        CONTENT_ANALYSIS_TABLE: 'ContentAnalysis'
       },
       role: lambdaExecutionRole
     });
@@ -317,8 +316,7 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(45), // Long timeout for video generation
       memorySize: 2048,
       environment: {
-        VIDEO_BUCKET: this.videoBucket.bucketName,
-        AWS_REGION: this.region
+        VIDEO_BUCKET: this.videoBucket.bucketName
       },
       role: lambdaExecutionRole
     });
