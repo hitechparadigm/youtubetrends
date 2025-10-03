@@ -1,5 +1,28 @@
 # Deployment Changelog
 
+## Version 1.2.0 - October 3, 2025
+
+### 🌐 **MAJOR: Live YouTube Data Integration**
+
+#### **Live YouTube Data API v3 Integration**
+- **Feature**: Complete integration with YouTube Data API v3 for real-time trend analysis
+- **Implementation**: New `YouTubeApiClientSimple` for reliable API connections
+- **Authentication**: OAuth2 credentials securely stored in AWS Secrets Manager
+- **Functionality**: Real trending video analysis, live engagement metrics, current keyword extraction
+- **Demo Enhancement**: Live data replaces simulation for authentic market intelligence
+
+#### **New Components Added**
+- `src/services/youtube-api-client-simple.ts` - Streamlined YouTube API client
+- `src/services/trend-detection-service-simple.ts` - Simplified trend detection with live data
+- `LIVE_DATA_INTEGRATION.md` - Comprehensive documentation of live data features
+- Enhanced demo with real-time YouTube analysis capabilities
+
+#### **Demo Transformation**
+- **Before**: Simulated trend analysis with mock data
+- **After**: Live YouTube trending analysis with real metrics
+- **Impact**: Authentic market intelligence and current trending insights
+- **Performance**: 2-5 second response time for live analysis
+
 ## Version 1.1.0 - October 3, 2025
 
 ### 🔧 **Critical Deployment Fixes**

@@ -9,6 +9,8 @@
     "test": "jest",
     "test:simple": "ts-node test-simple.ts",
     "demo:trends": "ts-node demo-trends.ts",
+    "demo:live": "ts-node demo-trends.ts",
+    "test:youtube": "npx ts-node test-simple-client.ts",
     "setup:youtube": "node setup-youtube-credentials.js",
     "cdk": "cdk",
     "deploy": "cdk deploy",

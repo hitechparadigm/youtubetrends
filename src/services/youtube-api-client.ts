@@ -6,6 +6,7 @@ export interface YouTubeCredentials {
   client_secret: string;
   refresh_token: string;
   project_id: string;
+  api_key?: string;
 }
 
 export interface YouTubeApiConfig {
@@ -94,7 +95,11 @@ export class YouTubeApiClient {
 
   async initialize(): Promise<void> {
     await this.loadCredentials();
-    await this.refreshAccessToken();
+    
+    // Only try OAuth2 if we don't have an API key or if API key is empty
+    if (!this.credentials?.api_key || this.credentials.api_key.trim() === '') {
+      await this.refreshAccessToken();
+    }
   }
 
   private async loadCredentials(): Promise<void> {
@@ -110,12 +115,22 @@ export class YouTubeApiClient {
       }
 
       this.credentials = JSON.parse(response.SecretString) as YouTubeCredentials;
+      console.log('Debug: Credentials loaded successfully', {
+        hasApiKey: !!this.credentials.api_key,
+        apiKeyLength: this.credentials.api_key?.length,
+        hasClientId: !!this.credentials.client_id
+      });
     } catch (error) {
       throw new Error(`Failed to load YouTube credentials: ${error}`);
     }
   }
 
   private async refreshAccessToken(): Promise<void> {
+    if (!this.credentials) {
+      console.log('Debug: Credentials not found, attempting to reload...');
+      await this.loadCredentials();
+    }
+    
     if (!this.credentials) {
       throw new Error('Credentials not loaded');
     }
@@ -150,6 +165,17 @@ export class YouTubeApiClient {
   }
 
   private async ensureValidToken(): Promise<void> {
+    // Ensure credentials are loaded first
+    if (!this.credentials) {
+      await this.loadCredentials();
+    }
+    
+    // If we have an API key, we don't need OAuth2 tokens
+    if (this.credentials?.api_key && this.credentials.api_key.trim() !== '') {
+      console.log('Debug: Skipping token refresh - using API key');
+      return;
+    }
+    
     if (!this.accessToken || Date.now() >= this.tokenExpiresAt) {
       await this.refreshAccessToken();
     }
@@ -164,16 +190,38 @@ export class YouTubeApiClient {
       this.requestQueue.push(async () => {
         try {
           await this.checkQuota(quotaCost);
-          await this.ensureValidToken();
+          
+          // Ensure credentials are loaded
+          if (!this.credentials) {
+            await this.loadCredentials();
+          }
+          
+          let requestUrl = url;
+          let requestOptions = { ...options };
 
-          const response = await fetch(url, {
-            ...options,
-            headers: {
-              'Authorization': `Bearer ${this.accessToken}`,
+          // SIMPLIFIED: Always use API key if available
+          console.log('Debug: Checking API key availability:', {
+            hasCredentials: !!this.credentials,
+            hasApiKey: !!this.credentials?.api_key,
+            apiKeyLength: this.credentials?.api_key?.length
+          });
+          
+          // Force API key usage - we know it works
+          if (this.credentials?.api_key) {
+            console.log('Debug: Using API key for request');
+            const separator = url.includes('?') ? '&' : '?';
+            requestUrl = `${url}${separator}key=${this.credentials.api_key}`;
+            
+            requestOptions.headers = {
               'Content-Type': 'application/json',
               ...(options.headers as Record<string, string> || {})
-            }
-          });
+            };
+          } else {
+            console.log('Debug: No API key found, cannot proceed');
+            throw new Error('API key not available - OAuth2 flow disabled for debugging');
+          }
+
+          const response = await fetch(requestUrl, requestOptions);
 
           if (!response.ok) {
             if (response.status === 429) {
@@ -412,7 +460,10 @@ export class YouTubeApiClient {
 
   async testConnection(): Promise<boolean> {
     try {
-      await this.ensureValidToken();
+      // Only ensure valid token if we're not using API key
+      if (!this.credentials?.api_key || this.credentials.api_key.trim() === '') {
+        await this.ensureValidToken();
+      }
       // Simple test request
       await this.getVideoCategories();
       return true;

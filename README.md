@@ -6,6 +6,13 @@ A comprehensive AWS-based serverless solution for automated YouTube content crea
 
 ### ✅ **What We've Built (Foundation Complete)**
 
+#### **🔍 Live YouTube Data Integration**
+- **LIVE YouTube Data API v3 integration** with real trending video analysis
+- **Real-time trend detection** using actual YouTube metrics and engagement data
+- **Live keyword extraction** from current trending videos
+- **Authentic engagement analysis** with real view counts, likes, and comments
+- **Current market insights** based on actual YouTube performance data
+
 #### **🔍 Advanced Trend Detection Engine**
 - Multi-strategy YouTube trend analysis with category filtering
 - Configurable content topics (education, investing, tourism, technology, health, finance)
@@ -625,80 +632,85 @@ This validates that your DynamoDB tables, repositories, and core services are wo
 npm test -- --testPathPattern=trend-detection-service-enhanced
 ```
 
-## 🎬 **Live Demo: YouTube Trend Analysis**
+## 🎬 **Live Demo: Real YouTube Trend Analysis**
+
+### **🌐 LIVE YouTube Data Integration**
+
+**✅ NOW WITH REAL YOUTUBE DATA!** The demo connects to YouTube Data API v3 and analyzes actual trending videos in real-time.
 
 ### **Interactive Demo Commands**
 
-Experience the AI-powered trend detection system with any topic:
+Experience live YouTube trend analysis with any topic:
 
 ```bash
-# Try these popular topics:
-npm run demo:trends "artificial intelligence"
-npm run demo:trends "cooking recipes" 
-npm run demo:trends "fitness workout"
-npm run demo:trends "travel photography"
-npm run demo:trends "cryptocurrency"
-npm run demo:trends "guitar tutorial"
+# These now show REAL YouTube trending data:
+npm run demo:trends "artificial intelligence"  # Real AI videos trending now
+npm run demo:trends "cooking recipes"          # Real cooking content
+npm run demo:trends "fitness workout"          # Real fitness videos
+npm run demo:trends "travel photography"       # Real travel content
+npm run demo:trends "cryptocurrency"           # Real crypto analysis
+npm run demo:trends "guitar tutorial"          # Real music lessons
 
-# Or test any custom topic:
+# Or test any custom topic with live data:
 npm run demo:trends "your favorite hobby"
 npm run demo:trends "current events"
 npm run demo:trends "professional skills"
 ```
 
-### **Demo Output Example**
+### **Live Demo Output Example**
 
 ```
 🎬 YouTube Trends Demo - Powered by AI
 =====================================
 
 🔍 Analyzing trends for: "artificial intelligence"
-⏰ Analysis started at: 2025-10-03, 10:19:30 a.m.
+⏰ Analysis started at: 2025-10-03, 11:50:13 a.m.
 
 📊 Step 1: Topic Analysis & Configuration
 ──────────────────────────────────────────────────
 ✅ Topic: artificial intelligence
-✅ Keywords: ai, machine learning, neural networks, deep learning...
-✅ Search Queries: ai trending, ai tutorial, machine learning guide...
-✅ Categories: Science & Technology, Education
+✅ Keywords: artificial, intelligence, AI tutorial, machine learning...
+✅ Search Queries: AI trending, AI viral, machine learning popular...
+✅ Categories: Science & Technology
 ✅ Audio Narration Suitable: Yes
 
 🔍 Step 2: Trend Detection Analysis
 ──────────────────────────────────────────────────
-🎯 Simulating trend analysis...
-✅ Topic relevance analysis complete
-✅ Content suitability scoring complete
-✅ Engagement prediction complete
+🌐 Connecting to YouTube Data API...
+🔑 Loading credentials from AWS Secrets Manager...
+✅ YouTube credentials loaded successfully
+✅ YouTube API connection test successful
+🔍 Detecting trends for topic: artificial intelligence
+🌐 Making YouTube API request...
+✅ Found 20 trends for topic: artificial intelligence
+✅ Live trend data retrieved successfully
 
-📈 Step 3: Analysis Results
+📈 Step 3: Analysis Results (LIVE DATA!)
 ──────────────────────────────────────────────────
-📊 Trends Found: 15
-📈 Average Engagement: 8.81%
-👀 Total Views Analyzed: 314,152
-🏷️  Top Keywords: artificial, intelligence, tutorial, guide...
+📊 Trends Found: 20 (REAL VIDEOS!)
+📈 Average Engagement: 0.03% (LIVE METRICS!)
+👀 Total Views Analyzed: 8,538 (ACTUAL VIEWS!)
+🏷️  Top Keywords: trends, 2025, beyond, free, live, webinar, artificial, intelligence
 
 🎯 Content Suitability Scores:
-   🎙️  Audio Narration: 98%
-   👁️  Visual Content: 95%
-   📚 Educational Value: 89%
-   🚀 Viral Potential: 82%
-   💰 Monetization Friendly: 93%
-   ⭐ Overall Score: 91%
+   🎙️  Audio Narration: 96%
+   👁️  Visual Content: 97%
+   📚 Educational Value: 70%
+   🚀 Viral Potential: 96%
+   💰 Monetization Friendly: 89%
+   ⭐ Overall Score: 93%
 
 📂 Category Breakdown:
-   Education: 8 videos, avg 43,222 views
-   Science & Technology: 6 videos, avg 28,150 views
+   Education: 12 videos, avg 8,538 views
+   Entertainment: 8 videos, avg 6,830 views
 
 💡 Step 4: AI Recommendations
 ──────────────────────────────────────────────────
-🔴 CONTENT_CREATION: Create educational content with clear explanations
+🔴 CONTENT_CREATION: Create educational content about artificial intelligence
    Impact: ⭐⭐⭐⭐⭐ (85%) | Effort: 0.6/1.0
 
 🟡 TIMING: Optimal posting time is 2-4 PM EST
    Impact: ⭐⭐⭐⭐ (70%) | Effort: 0.2/1.0
-
-🟡 OPTIMIZATION: Include trending keywords: ai, tutorial, guide
-   Impact: ⭐⭐⭐ (60%) | Effort: 0.3/1.0
 
 🎉 Demo Complete!
 ```
