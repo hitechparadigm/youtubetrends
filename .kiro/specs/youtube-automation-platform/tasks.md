@@ -18,7 +18,6 @@
 
   - [x] 2.2 Build data access layer with repository pattern
 
-
     - Implement TrendRepository and VideoRepository classes with CRUD operations
     - Add connection pooling and error handling for DynamoDB operations
     - _Requirements: 1.2, 5.2, 6.2_
@@ -32,23 +31,21 @@
 
   - [x] 3.1 Create YouTube API client with authentication
 
-
-
     - Implement OAuth2 flow for YouTube API access
     - Create service class for YouTube Data API v3 operations
     - Add rate limiting and quota management
     - _Requirements: 1.1, 3.3, 6.1_
 
+  - [x] 3.2 Build trend detection functionality
 
-
-  - [ ] 3.2 Build trend detection functionality
 
     - Implement trending video search with category filtering
     - Add engagement metrics calculation and trend ranking
     - Create data transformation layer for YouTube API responses
     - _Requirements: 1.1, 1.3, 1.4_
 
-  - [ ]\* 3.3 Write integration tests for YouTube API
+  - [ ] 3.3 Write integration tests for YouTube API
+
     - Create tests using mock YouTube API responses
     - Test rate limiting and error handling scenarios
     - _Requirements: 1.1, 6.1_
@@ -56,6 +53,8 @@
 - [ ] 4. Develop Lambda functions for core pipeline
 
   - [ ] 4.1 Create trend detector Lambda function
+
+
 
     - Implement trend detection logic with YouTube API integration
     - Add CloudWatch logging and custom metrics publishing
@@ -214,7 +213,9 @@
     - _Requirements: 6.1, 5.1_
 
 - [ ] 10. Configuration management and customization system
+
   - [ ] 10.1 Create configuration management infrastructure
+
     - Build DynamoDB table for storing user configuration settings
     - Create configuration service for managing topics, prompts, and video parameters
     - Add support for topic-specific settings (education, investing, tourism, technology, health, finance)
@@ -222,6 +223,7 @@
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
   - [ ] 10.2 Implement audio generation and video enhancement
+
     - Integrate Amazon Polly for high-quality text-to-speech narration
     - Add topic-specific vocabulary and speaking styles for different niches
     - Implement audio-video synchronization in MediaConvert

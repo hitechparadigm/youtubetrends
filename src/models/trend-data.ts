@@ -13,8 +13,10 @@ export interface TrendData {
   publishedAt: string;
   channelTitle: string;
   channelId: string;
+  description?: string;
   duration?: string;
   thumbnailUrl?: string;
+  thumbnails?: any;
 }
 
 export interface TrendAnalysisResult {
@@ -59,8 +61,10 @@ export class TrendDataModel {
       publishedAt: snippet.publishedAt || new Date().toISOString(),
       channelTitle: snippet.channelTitle || '',
       channelId: snippet.channelId || '',
+      description: snippet.description || '',
       duration: item.contentDetails?.duration,
-      thumbnailUrl: snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url
+      thumbnailUrl: snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url,
+      thumbnails: snippet.thumbnails
     };
   }
 
@@ -90,8 +94,10 @@ export class TrendDataModel {
       publishedAt: trend.publishedAt,
       channelTitle: trend.channelTitle,
       channelId: trend.channelId,
+      description: trend.description,
       duration: trend.duration,
-      thumbnailUrl: trend.thumbnailUrl
+      thumbnailUrl: trend.thumbnailUrl,
+      thumbnails: trend.thumbnails
     };
   }
 
@@ -111,8 +117,10 @@ export class TrendDataModel {
       publishedAt: item.publishedAt,
       channelTitle: item.channelTitle,
       channelId: item.channelId,
+      description: item.description,
       duration: item.duration,
-      thumbnailUrl: item.thumbnailUrl
+      thumbnailUrl: item.thumbnailUrl,
+      thumbnails: item.thumbnails
     };
   }
 }

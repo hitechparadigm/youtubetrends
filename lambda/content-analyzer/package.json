@@ -1,0 +1,20 @@
+{
+  "name": "content-analyzer-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function for analyzing trends and generating content prompts",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "package": "npm run build && zip -r content-analyzer.zip index.js node_modules/",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.450.0",
+    "@aws-sdk/lib-dynamodb": "^3.450.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.130",
+    "@types/node": "^20.6.2",
+    "typescript": "^5.2.2"
+  }
+}

@@ -6,6 +6,8 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 
 export class YoutubeAutomationPlatformStack extends cdk.Stack {
@@ -15,6 +17,9 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
   public readonly youtubeCredentialsSecret: secretsmanager.Secret;
   public readonly vpc: ec2.Vpc;
   public readonly notificationTopic: sns.Topic;
+  public readonly trendDetectorFunction: nodejs.NodejsFunction;
+  public readonly contentAnalyzerFunction: nodejs.NodejsFunction;
+  public readonly videoGeneratorFunction: nodejs.NodejsFunction;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -197,6 +202,17 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
               ],
               resources: ['arn:aws:bedrock:*::foundation-model/amazon.nova-reel-v1:0'],
             }),
+            // Polly permissions for audio generation
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'polly:StartSpeechSynthesisTask',
+                'polly:GetSpeechSynthesisTask',
+                'polly:ListSpeechSynthesisTasks',
+                'polly:SynthesizeSpeech'
+              ],
+              resources: ['*'],
+            }),
             // MediaConvert permissions
             new iam.PolicyStatement({
               effect: iam.Effect.ALLOW,
@@ -252,6 +268,61 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       },
     });
 
+    // Lambda Functions
+    
+    // Trend Detector Function
+    this.trendDetectorFunction = new nodejs.NodejsFunction(this, 'TrendDetectorFunction', {
+      functionName: 'youtube-automation-trend-detector',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: 'lambda/trend-detector/index.ts',
+      handler: 'handler',
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1024,
+      environment: {
+        TREND_ANALYTICS_TABLE_NAME: this.trendAnalyticsTable.tableName,
+        VIDEO_METADATA_TABLE_NAME: this.videoMetadataTable.tableName,
+        VIDEO_BUCKET: this.videoBucket.bucketName,
+        YOUTUBE_CREDENTIALS_SECRET: this.youtubeCredentialsSecret.secretName,
+        AWS_REGION: this.region
+      },
+      role: lambdaExecutionRole,
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PUBLIC
+      }
+    });
+
+    // Content Analyzer Function
+    this.contentAnalyzerFunction = new nodejs.NodejsFunction(this, 'ContentAnalyzerFunction', {
+      functionName: 'youtube-automation-content-analyzer',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: 'lambda/content-analyzer/index.ts',
+      handler: 'handler',
+      timeout: cdk.Duration.minutes(10),
+      memorySize: 512,
+      environment: {
+        TREND_ANALYTICS_TABLE_NAME: this.trendAnalyticsTable.tableName,
+        CONTENT_ANALYSIS_TABLE: 'ContentAnalysis',
+        AWS_REGION: this.region
+      },
+      role: lambdaExecutionRole
+    });
+
+    // Video Generator Function
+    this.videoGeneratorFunction = new nodejs.NodejsFunction(this, 'VideoGeneratorFunction', {
+      functionName: 'youtube-automation-video-generator',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: 'lambda/video-generator/index.ts',
+      handler: 'handler',
+      timeout: cdk.Duration.minutes(45), // Long timeout for video generation
+      memorySize: 2048,
+      environment: {
+        VIDEO_BUCKET: this.videoBucket.bucketName,
+        AWS_REGION: this.region
+      },
+      role: lambdaExecutionRole
+    });
+
     // CloudWatch dashboard for monitoring
     const dashboard = new cloudwatch.Dashboard(this, 'YoutubeAutomationDashboard', {
       dashboardName: 'YouTube-Automation-Platform',
@@ -296,6 +367,21 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'VpcId', {
       value: this.vpc.vpcId,
       description: 'VPC ID for Lambda functions',
+    });
+
+    new cdk.CfnOutput(this, 'TrendDetectorFunctionArn', {
+      value: this.trendDetectorFunction.functionArn,
+      description: 'ARN of the trend detector Lambda function',
+    });
+
+    new cdk.CfnOutput(this, 'ContentAnalyzerFunctionArn', {
+      value: this.contentAnalyzerFunction.functionArn,
+      description: 'ARN of the content analyzer Lambda function',
+    });
+
+    new cdk.CfnOutput(this, 'VideoGeneratorFunctionArn', {
+      value: this.videoGeneratorFunction.functionArn,
+      description: 'ARN of the video generator Lambda function',
     });
   }
 }
