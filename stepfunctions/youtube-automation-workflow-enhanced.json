@@ -1,0 +1,709 @@
+{
+  "Comment": "YouTube Automation Platform - Enhanced Error Handling and Recovery",
+  "StartAt": "InitializeWorkflow",
+  "States": {
+    "InitializeWorkflow": {
+      "Type": "Pass",
+      "Parameters": {
+        "workflowId.$": "$$.Execution.Name",
+        "startTime.$": "$$.Execution.StartTime",
+        "input.$": "$",
+        "retryCount": 0,
+        "failureCount": 0,
+        "circuitBreakerState": "CLOSED"
+      },
+      "ResultPath": "$.workflowContext",
+      "Next": "CheckCircuitBreaker"
+    },
+
+    "CheckCircuitBreaker": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.workflowContext.circuitBreakerState",
+          "StringEquals": "OPEN",
+          "Next": "CircuitBreakerOpen"
+        }
+      ],
+      "Default": "TrendDetection"
+    },
+
+    "CircuitBreakerOpen": {
+      "Type": "Wait",
+      "Seconds": 300,
+      "Next": "ResetCircuitBreaker"
+    },
+
+    "ResetCircuitBreaker": {
+      "Type": "Pass",
+      "Parameters": {
+        "workflowId.$": "$.workflowContext.workflowId",
+        "startTime.$": "$.workflowContext.startTime",
+        "input.$": "$.workflowContext.input",
+        "retryCount.$": "$.workflowContext.retryCount",
+        "failureCount": 0,
+        "circuitBreakerState": "HALF_OPEN"
+      },
+      "ResultPath": "$.workflowContext",
+      "Next": "TrendDetection"
+    },
+
+    "TrendDetection": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${TrendDetectorFunctionArn}",
+        "Payload": {
+          "topics.$": "$.topics",
+          "region.$": "$.region",
+          "maxResults.$": "$.maxResults",
+          "hoursBack.$": "$.hoursBack",
+          "workflowContext.$": "$.workflowContext"
+        }
+      },
+      "ResultPath": "$.trendDetectionResult",
+      "TimeoutSeconds": 900,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "States.Timeout"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0,
+          "JitterStrategy": "FULL"
+        },
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 2,
+          "BackoffRate": 3.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["Lambda.TooManyRequestsException"],
+          "Next": "HandleRateLimit",
+          "ResultPath": "$.error"
+        },
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleTrendDetectionFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "UpdateCircuitBreakerSuccess"
+    },
+
+    "UpdateCircuitBreakerSuccess": {
+      "Type": "Pass",
+      "Parameters": {
+        "workflowId.$": "$.workflowContext.workflowId",
+        "startTime.$": "$.workflowContext.startTime",
+        "input.$": "$.workflowContext.input",
+        "retryCount.$": "$.workflowContext.retryCount",
+        "failureCount": 0,
+        "circuitBreakerState": "CLOSED"
+      },
+      "ResultPath": "$.workflowContext",
+      "Next": "CheckTrendsFound"
+    },
+
+    "HandleRateLimit": {
+      "Type": "Wait",
+      "Seconds": 300,
+      "Next": "IncrementRetryCount"
+    },
+
+    "IncrementRetryCount": {
+      "Type": "Pass",
+      "Parameters": {
+        "workflowId.$": "$.workflowContext.workflowId",
+        "startTime.$": "$.workflowContext.startTime",
+        "input.$": "$.workflowContext.input",
+        "retryCount.$": "States.MathAdd($.workflowContext.retryCount, 1)",
+        "failureCount.$": "States.MathAdd($.workflowContext.failureCount, 1)",
+        "circuitBreakerState.$": "$.workflowContext.circuitBreakerState"
+      },
+      "ResultPath": "$.workflowContext",
+      "Next": "CheckMaxRetries"
+    },
+
+    "CheckMaxRetries": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.workflowContext.retryCount",
+          "NumericGreaterThan": 5,
+          "Next": "OpenCircuitBreaker"
+        },
+        {
+          "Variable": "$.workflowContext.failureCount",
+          "NumericGreaterThan": 3,
+          "Next": "OpenCircuitBreaker"
+        }
+      ],
+      "Default": "TrendDetection"
+    },
+
+    "OpenCircuitBreaker": {
+      "Type": "Pass",
+      "Parameters": {
+        "workflowId.$": "$.workflowContext.workflowId",
+        "startTime.$": "$.workflowContext.startTime",
+        "input.$": "$.workflowContext.input",
+        "retryCount.$": "$.workflowContext.retryCount",
+        "failureCount.$": "$.workflowContext.failureCount",
+        "circuitBreakerState": "OPEN"
+      },
+      "ResultPath": "$.workflowContext",
+      "Next": "NotifyCircuitBreakerOpen"
+    },
+
+    "NotifyCircuitBreakerOpen": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Subject": "YouTube Automation - Circuit Breaker Opened",
+        "Message": {
+          "workflowStatus": "CIRCUIT_BREAKER_OPEN",
+          "workflowId.$": "$.workflowContext.workflowId",
+          "retryCount.$": "$.workflowContext.retryCount",
+          "failureCount.$": "$.workflowContext.failureCount",
+          "message": "Circuit breaker opened due to repeated failures. Workflow will retry after cooldown period."
+        }
+      },
+      "Next": "SendToDeadLetterQueue"
+    },
+
+    "HandleTrendDetectionFailure": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.error.Error",
+          "StringEquals": "Lambda.ServiceException",
+          "Next": "UseFallbackTrends"
+        }
+      ],
+      "Default": "IncrementRetryCount"
+    },
+
+    "UseFallbackTrends": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${FallbackTrendProviderFunctionArn}",
+        "Payload": {
+          "topics.$": "$.topics",
+          "fallbackStrategy": "CACHED_TRENDS",
+          "workflowContext.$": "$.workflowContext"
+        }
+      },
+      "ResultPath": "$.trendDetectionResult",
+      "TimeoutSeconds": 300,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyFallbackFailure",
+          "ResultPath": "$.fallbackError"
+        }
+      ],
+      "Next": "CheckTrendsFound"
+    },
+
+    "CheckTrendsFound": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.trendDetectionResult.Payload.trendsDetected",
+          "NumericGreaterThan": 0,
+          "Next": "ProcessTrendsByTopic"
+        }
+      ],
+      "Default": "NoTrendsFound"
+    },
+
+    "ProcessTrendsByTopic": {
+      "Type": "Map",
+      "ItemsPath": "$.trendDetectionResult.Payload.results",
+      "MaxConcurrency": 3,
+      "ToleratedFailurePercentage": 50,
+      "Iterator": {
+        "StartAt": "ContentAnalysis",
+        "States": {
+          "ContentAnalysis": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "${ContentAnalyzerFunctionArn}",
+              "Payload": {
+                "topic.$": "$.topic",
+                "trendsData.$": "$.trends",
+                "topTrend.$": "$.topTrend",
+                "trendsFound.$": "$.trendsFound",
+                "averageEngagement.$": "$.averageEngagement",
+                "maxVideos": 2,
+                "minEngagementScore": 0.02,
+                "workflowContext.$": "$$.Execution.Input.workflowContext"
+              }
+            },
+            "ResultPath": "$.contentAnalysisResult",
+            "TimeoutSeconds": 600,
+            "Retry": [
+              {
+                "ErrorEquals": ["States.TaskFailed"],
+                "IntervalSeconds": 20,
+                "MaxAttempts": 2,
+                "BackoffRate": 2.0
+              }
+            ],
+            "Catch": [
+              {
+                "ErrorEquals": ["States.ALL"],
+                "Next": "ContentAnalysisFallback",
+                "ResultPath": "$.contentAnalysisError"
+              }
+            ],
+            "Next": "CheckContentSelected"
+          },
+
+          "ContentAnalysisFallback": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "${FallbackContentGeneratorFunctionArn}",
+              "Payload": {
+                "topic.$": "$.topic",
+                "trendsData.$": "$.trends",
+                "fallbackStrategy": "TEMPLATE_BASED"
+              }
+            },
+            "ResultPath": "$.contentAnalysisResult",
+            "TimeoutSeconds": 300,
+            "Retry": [
+              {
+                "ErrorEquals": ["States.TaskFailed"],
+                "IntervalSeconds": 10,
+                "MaxAttempts": 1
+              }
+            ],
+            "Catch": [
+              {
+                "ErrorEquals": ["States.ALL"],
+                "Next": "SkipTopic",
+                "ResultPath": "$.fallbackError"
+              }
+            ],
+            "Next": "CheckContentSelected"
+          },
+
+          "CheckContentSelected": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.contentAnalysisResult.Payload.selectedTrends",
+                "IsPresent": true,
+                "Next": "ProcessSelectedContent"
+              }
+            ],
+            "Default": "SkipTopic"
+          },
+
+          "ProcessSelectedContent": {
+            "Type": "Map",
+            "ItemsPath": "$.contentAnalysisResult.Payload.scriptPrompts",
+            "MaxConcurrency": 2,
+            "ToleratedFailurePercentage": 30,
+            "Iterator": {
+              "StartAt": "VideoGeneration",
+              "States": {
+                "VideoGeneration": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::lambda:invoke",
+                  "Parameters": {
+                    "FunctionName": "${VideoGeneratorFunctionArn}",
+                    "Payload": {
+                      "scriptPrompt.$": "$.prompt",
+                      "topic.$": "$.topic",
+                      "trendId.$": "$.trendId",
+                      "videoConfig": {
+                        "durationSeconds.$": "$.estimatedLength",
+                        "fps": 24,
+                        "dimension": "1920x1080",
+                        "quality": "high",
+                        "includeAudio": true
+                      },
+                      "audioConfig": {
+                        "voice": "neural",
+                        "speed": "medium",
+                        "language": "en-US"
+                      }
+                    }
+                  },
+                  "ResultPath": "$.videoGenerationResult",
+                  "TimeoutSeconds": 1800,
+                  "Retry": [
+                    {
+                      "ErrorEquals": ["States.TaskFailed"],
+                      "IntervalSeconds": 60,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2.0
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["Lambda.TooManyRequestsException"],
+                      "Next": "VideoGenerationRateLimit",
+                      "ResultPath": "$.rateLimitError"
+                    },
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "VideoGenerationFallback",
+                      "ResultPath": "$.videoGenerationError"
+                    }
+                  ],
+                  "Next": "CheckVideoGenerated"
+                },
+
+                "VideoGenerationRateLimit": {
+                  "Type": "Wait",
+                  "Seconds": 600,
+                  "Next": "VideoGeneration"
+                },
+
+                "VideoGenerationFallback": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::lambda:invoke",
+                  "Parameters": {
+                    "FunctionName": "${FallbackVideoGeneratorFunctionArn}",
+                    "Payload": {
+                      "scriptPrompt.$": "$.prompt",
+                      "topic.$": "$.topic",
+                      "trendId.$": "$.trendId",
+                      "fallbackStrategy": "SIMPLE_SLIDESHOW"
+                    }
+                  },
+                  "ResultPath": "$.videoGenerationResult",
+                  "TimeoutSeconds": 600,
+                  "Retry": [
+                    {
+                      "ErrorEquals": ["States.TaskFailed"],
+                      "IntervalSeconds": 30,
+                      "MaxAttempts": 1
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "VideoGenerationFailed",
+                      "ResultPath": "$.fallbackVideoError"
+                    }
+                  ],
+                  "Next": "CheckVideoGenerated"
+                },
+
+                "CheckVideoGenerated": {
+                  "Type": "Choice",
+                  "Choices": [
+                    {
+                      "Variable": "$.videoGenerationResult.Payload.success",
+                      "BooleanEquals": true,
+                      "Next": "VideoProcessing"
+                    }
+                  ],
+                  "Default": "VideoGenerationFailed"
+                },
+
+                "VideoProcessing": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::lambda:invoke",
+                  "Parameters": {
+                    "FunctionName": "${VideoProcessorFunctionArn}",
+                    "Payload": {
+                      "videoS3Key.$": "$.videoGenerationResult.Payload.videoS3Key",
+                      "audioS3Key.$": "$.videoGenerationResult.Payload.audioS3Key",
+                      "topic.$": "$.topic",
+                      "trendId.$": "$.trendId",
+                      "metadata": {
+                        "duration.$": "$.videoGenerationResult.Payload.metadata.duration",
+                        "format.$": "$.videoGenerationResult.Payload.metadata.format",
+                        "hasAudio.$": "$.videoGenerationResult.Payload.metadata.hasAudio"
+                      },
+                      "processingConfig": {
+                        "outputFormat": "mp4",
+                        "quality": "high",
+                        "resolution": "1920x1080",
+                        "bitrate": "8000"
+                      }
+                    }
+                  },
+                  "ResultPath": "$.videoProcessingResult",
+                  "TimeoutSeconds": 1800,
+                  "Retry": [
+                    {
+                      "ErrorEquals": ["States.TaskFailed"],
+                      "IntervalSeconds": 120,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2.0
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "VideoProcessingFallback",
+                      "ResultPath": "$.videoProcessingError"
+                    }
+                  ],
+                  "Next": "CheckVideoProcessed"
+                },
+
+                "VideoProcessingFallback": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::lambda:invoke",
+                  "Parameters": {
+                    "FunctionName": "${SimpleVideoProcessorFunctionArn}",
+                    "Payload": {
+                      "videoS3Key.$": "$.videoGenerationResult.Payload.videoS3Key",
+                      "fallbackStrategy": "BASIC_PROCESSING"
+                    }
+                  },
+                  "ResultPath": "$.videoProcessingResult",
+                  "TimeoutSeconds": 900,
+                  "Retry": [
+                    {
+                      "ErrorEquals": ["States.TaskFailed"],
+                      "IntervalSeconds": 60,
+                      "MaxAttempts": 1
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "VideoProcessingFailed",
+                      "ResultPath": "$.fallbackProcessingError"
+                    }
+                  ],
+                  "Next": "CheckVideoProcessed"
+                },
+
+                "CheckVideoProcessed": {
+                  "Type": "Choice",
+                  "Choices": [
+                    {
+                      "Variable": "$.videoProcessingResult.Payload.success",
+                      "BooleanEquals": true,
+                      "Next": "YouTubeUpload"
+                    }
+                  ],
+                  "Default": "VideoProcessingFailed"
+                },
+
+                "YouTubeUpload": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::lambda:invoke",
+                  "Parameters": {
+                    "FunctionName": "${YouTubeUploaderFunctionArn}",
+                    "Payload": {
+                      "processedVideoS3Key.$": "$.videoProcessingResult.Payload.processedVideoS3Key",
+                      "topic.$": "$.topic",
+                      "trendId.$": "$.trendId",
+                      "scriptPrompt.$": "$.prompt",
+                      "keywords.$": "$.keywords",
+                      "videoMetadata": {
+                        "duration.$": "$.videoProcessingResult.Payload.outputMetadata.duration",
+                        "fileSize.$": "$.videoProcessingResult.Payload.outputMetadata.fileSize",
+                        "format.$": "$.videoProcessingResult.Payload.outputMetadata.format",
+                        "resolution.$": "$.videoProcessingResult.Payload.outputMetadata.resolution",
+                        "isYouTubeOptimized.$": "$.videoProcessingResult.Payload.outputMetadata.isYouTubeOptimized"
+                      },
+                      "uploadConfig": {
+                        "privacyStatus": "public",
+                        "categoryId": "27"
+                      }
+                    }
+                  },
+                  "ResultPath": "$.youtubeUploadResult",
+                  "TimeoutSeconds": 900,
+                  "Retry": [
+                    {
+                      "ErrorEquals": ["States.TaskFailed"],
+                      "IntervalSeconds": 60,
+                      "MaxAttempts": 3,
+                      "BackoffRate": 2.0
+                    },
+                    {
+                      "ErrorEquals": ["Lambda.TooManyRequestsException"],
+                      "IntervalSeconds": 300,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 3.0
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": ["States.ALL"],
+                      "Next": "YouTubeUploadFailed",
+                      "ResultPath": "$.youtubeUploadError"
+                    }
+                  ],
+                  "Next": "VideoUploadComplete"
+                },
+
+                "VideoUploadComplete": {
+                  "Type": "Pass",
+                  "Parameters": {
+                    "status": "SUCCESS",
+                    "message": "Video successfully uploaded to YouTube",
+                    "youtubeVideoId.$": "$.youtubeUploadResult.Payload.youtubeVideoId",
+                    "uploadTime.$": "$.youtubeUploadResult.Payload.uploadTime"
+                  },
+                  "End": true
+                },
+
+                "VideoGenerationFailed": {
+                  "Type": "Pass",
+                  "Parameters": {
+                    "status": "FAILED",
+                    "stage": "VIDEO_GENERATION",
+                    "message": "Video generation failed after all retry attempts",
+                    "error.$": "$.videoGenerationError",
+                    "fallbackError.$": "$.fallbackVideoError"
+                  },
+                  "End": true
+                },
+
+                "VideoProcessingFailed": {
+                  "Type": "Pass",
+                  "Parameters": {
+                    "status": "FAILED",
+                    "stage": "VIDEO_PROCESSING",
+                    "message": "Video processing failed after all retry attempts",
+                    "error.$": "$.videoProcessingError",
+                    "fallbackError.$": "$.fallbackProcessingError"
+                  },
+                  "End": true
+                },
+
+                "YouTubeUploadFailed": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::sqs:sendMessage",
+                  "Parameters": {
+                    "QueueUrl": "${FailedUploadsQueueUrl}",
+                    "MessageBody": {
+                      "processedVideoS3Key.$": "$.videoProcessingResult.Payload.processedVideoS3Key",
+                      "topic.$": "$.topic",
+                      "trendId.$": "$.trendId",
+                      "error.$": "$.youtubeUploadError",
+                      "retryAfter": 3600
+                    }
+                  },
+                  "Next": "YouTubeUploadFailedResult"
+                },
+
+                "YouTubeUploadFailedResult": {
+                  "Type": "Pass",
+                  "Parameters": {
+                    "status": "FAILED",
+                    "stage": "YOUTUBE_UPLOAD",
+                    "message": "YouTube upload failed, queued for retry",
+                    "error.$": "$.youtubeUploadError"
+                  },
+                  "End": true
+                }
+              }
+            },
+            "ResultPath": "$.videoResults",
+            "End": true
+          },
+
+          "SkipTopic": {
+            "Type": "Pass",
+            "Parameters": {
+              "status": "SKIPPED",
+              "message": "No suitable content found for this topic",
+              "topic.$": "$.topic"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.topicResults",
+      "Next": "WorkflowComplete"
+    },
+
+    "WorkflowComplete": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Subject": "YouTube Automation Workflow Complete",
+        "Message": {
+          "workflowStatus": "COMPLETED",
+          "workflowId.$": "$.workflowContext.workflowId",
+          "executionTime.$": "$.workflowContext.startTime",
+          "trendsProcessed.$": "$.trendDetectionResult.Payload.trendsDetected",
+          "topicsAnalyzed.$": "$.trendDetectionResult.Payload.topicsAnalyzed",
+          "results.$": "$.topicResults",
+          "circuitBreakerState.$": "$.workflowContext.circuitBreakerState",
+          "totalRetries.$": "$.workflowContext.retryCount"
+        }
+      },
+      "End": true
+    },
+
+    "NoTrendsFound": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Subject": "YouTube Automation - No Trends Found",
+        "Message": {
+          "workflowStatus": "NO_CONTENT",
+          "message": "No trending topics found matching criteria",
+          "workflowId.$": "$.workflowContext.workflowId",
+          "executionTime.$": "$.workflowContext.startTime"
+        }
+      },
+      "End": true
+    },
+
+    "NotifyFallbackFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Subject": "YouTube Automation - Fallback System Failed",
+        "Message": {
+          "workflowStatus": "FALLBACK_FAILED",
+          "workflowId.$": "$.workflowContext.workflowId",
+          "error.$": "$.fallbackError",
+          "message": "Both primary and fallback trend detection systems failed"
+        }
+      },
+      "Next": "SendToDeadLetterQueue"
+    },
+
+    "SendToDeadLetterQueue": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sqs:sendMessage",
+      "Parameters": {
+        "QueueUrl": "${DeadLetterQueueUrl}",
+        "MessageBody": {
+          "workflowId.$": "$.workflowContext.workflowId",
+          "originalInput.$": "$.workflowContext.input",
+          "failureReason": "CIRCUIT_BREAKER_OPEN_OR_FALLBACK_FAILED",
+          "retryCount.$": "$.workflowContext.retryCount",
+          "failureCount.$": "$.workflowContext.failureCount",
+          "timestamp.$": "$$.State.EnteredTime"
+        }
+      },
+      "End": true
+    }
+  }
+}

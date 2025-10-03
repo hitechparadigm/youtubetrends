@@ -122,6 +122,23 @@ async function generateVideo(event: VideoGeneratorEvent): Promise<{
   // Enhanced script prompt with topic-specific instructions
   const enhancedPrompt = enhancePromptForTopic(event.scriptPrompt, event.topic);
 
+  // Mock mode for testing
+  if (process.env.MOCK_VIDEO_GENERATION === 'true') {
+    console.log('Mock mode: Simulating video generation');
+    const s3OutputKey = `videos/${event.topic}/${event.trendId}_${Date.now()}.mp4`;
+    
+    // Simulate processing time
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    return {
+      s3Key: s3OutputKey,
+      jobId: `mock-job-${Date.now()}`,
+      duration: event.videoConfig.durationSeconds,
+      fileSize: event.videoConfig.durationSeconds * 1024 * 100, // Estimate ~100KB per second
+      format: 'mp4'
+    };
+  }
+
   try {
     const { BedrockRuntimeClient, StartAsyncInvokeCommand, GetAsyncInvokeCommand } = 
       await import('@aws-sdk/client-bedrock-runtime');
@@ -132,7 +149,12 @@ async function generateVideo(event: VideoGeneratorEvent): Promise<{
 
     const s3OutputKey = `videos/${event.topic}/${event.trendId}_${Date.now()}.mp4`;
 
-    // Start async video generation
+    // Validate required environment variables
+    if (!process.env.VIDEO_BUCKET) {
+      throw new Error('VIDEO_BUCKET environment variable is required');
+    }
+
+    // Start async video generation with improved error handling
     const startResponse = await bedrock.send(new StartAsyncInvokeCommand({
       modelId: 'amazon.nova-reel-v1:0',
       modelInput: {
@@ -155,7 +177,7 @@ async function generateVideo(event: VideoGeneratorEvent): Promise<{
     }));
 
     const jobId = startResponse.invocationArn!;
-    console.log('Bedrock job started', { jobId });
+    console.log('Bedrock job started', { jobId, s3OutputKey });
 
     // Poll for completion (with timeout)
     const maxWaitTime = 30 * 60 * 1000; // 30 minutes
@@ -166,6 +188,8 @@ async function generateVideo(event: VideoGeneratorEvent): Promise<{
       const statusResponse = await bedrock.send(new GetAsyncInvokeCommand({
         invocationArn: jobId
       }));
+
+      console.log('Job status:', statusResponse.status);
 
       if (statusResponse.status === 'Completed') {
         console.log('Video generation completed successfully');
@@ -181,17 +205,29 @@ async function generateVideo(event: VideoGeneratorEvent): Promise<{
           format: 'mp4'
         };
       } else if (statusResponse.status === 'Failed') {
-        throw new Error(`Video generation failed: ${statusResponse.failureMessage}`);
+        throw new Error(`Video generation failed: ${statusResponse.failureMessage || 'Unknown error'}`);
       }
 
       // Wait before next poll
       await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
 
-    throw new Error('Video generation timed out');
+    throw new Error('Video generation timed out after 30 minutes');
 
   } catch (error) {
     console.error('Bedrock video generation failed', error);
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('ValidationException')) {
+        throw new Error('Invalid video generation parameters or AWS configuration');
+      } else if (error.message.includes('AccessDeniedException')) {
+        throw new Error('Insufficient permissions for Bedrock Nova Reel access');
+      } else if (error.message.includes('ThrottlingException')) {
+        throw new Error('Rate limit exceeded for Bedrock Nova Reel');
+      }
+    }
+    
     throw error;
   }
 }
@@ -201,6 +237,20 @@ async function generateAudio(event: VideoGeneratorEvent): Promise<{
   jobId: string;
 }> {
   console.log('Starting audio generation with Amazon Polly');
+
+  // Mock mode for testing
+  if (process.env.MOCK_VIDEO_GENERATION === 'true') {
+    console.log('Mock mode: Simulating audio generation');
+    const s3OutputKey = `audio/${event.topic}/${event.trendId}_${Date.now()}.mp3`;
+    
+    // Simulate processing time
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      s3Key: s3OutputKey,
+      jobId: `mock-audio-job-${Date.now()}`
+    };
+  }
 
   try {
     const { PollyClient, StartSpeechSynthesisTaskCommand } = 
@@ -224,6 +274,11 @@ async function generateAudio(event: VideoGeneratorEvent): Promise<{
     // Generate SSML for better audio control
     const ssmlText = generateSSML(event.scriptPrompt, voiceSettings);
 
+    // Validate required environment variables
+    if (!process.env.VIDEO_BUCKET) {
+      throw new Error('VIDEO_BUCKET environment variable is required');
+    }
+
     const response = await polly.send(new StartSpeechSynthesisTaskCommand({
       Text: ssmlText,
       TextType: 'ssml',
@@ -235,7 +290,11 @@ async function generateAudio(event: VideoGeneratorEvent): Promise<{
       SampleRate: '24000'
     }));
 
-    console.log('Polly job started', { taskId: response.SynthesisTask?.TaskId });
+    console.log('Polly job started', { 
+      taskId: response.SynthesisTask?.TaskId,
+      s3OutputKey,
+      voiceId: voiceSettings.voiceId
+    });
 
     return {
       s3Key: s3OutputKey,
@@ -244,6 +303,18 @@ async function generateAudio(event: VideoGeneratorEvent): Promise<{
 
   } catch (error) {
     console.error('Polly audio generation failed', error);
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('InvalidParameterValue')) {
+        throw new Error('Invalid audio generation parameters');
+      } else if (error.message.includes('AccessDeniedException')) {
+        throw new Error('Insufficient permissions for Amazon Polly access');
+      } else if (error.message.includes('ThrottlingException')) {
+        throw new Error('Rate limit exceeded for Amazon Polly');
+      }
+    }
+    
     throw error;
   }
 }
@@ -302,22 +373,41 @@ function generateSSML(text: string, voiceSettings: any): string {
 }
 
 async function getS3FileMetadata(s3Key: string): Promise<{ size: number }> {
+  // Mock mode for testing
+  if (process.env.MOCK_VIDEO_GENERATION === 'true') {
+    // Estimate file size based on duration (rough approximation)
+    const estimatedSize = 1024 * 1024 * 5; // 5MB default
+    return { size: estimatedSize };
+  }
+
   try {
     const { S3Client, HeadObjectCommand } = await import('@aws-sdk/client-s3');
     
     const s3 = new S3Client({ region: process.env.AWS_REGION });
+    
+    if (!process.env.VIDEO_BUCKET) {
+      throw new Error('VIDEO_BUCKET environment variable is required');
+    }
     
     const response = await s3.send(new HeadObjectCommand({
       Bucket: process.env.VIDEO_BUCKET,
       Key: s3Key
     }));
 
+    console.log('S3 metadata retrieved', { 
+      key: s3Key, 
+      size: response.ContentLength,
+      lastModified: response.LastModified
+    });
+
     return {
       size: response.ContentLength || 0
     };
   } catch (error) {
-    console.error('Failed to get S3 metadata', error);
-    return { size: 0 };
+    console.error('Failed to get S3 metadata', { key: s3Key, error });
+    
+    // Return estimated size if metadata retrieval fails
+    return { size: 1024 * 1024 * 5 }; // 5MB estimate
   }
 }
 
