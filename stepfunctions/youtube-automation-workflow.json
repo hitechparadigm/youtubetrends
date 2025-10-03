@@ -61,6 +61,9 @@
               "Payload": {
                 "topic.$": "$.topic",
                 "trendsData.$": "$.trends",
+                "topTrend.$": "$.topTrend",
+                "trendsFound.$": "$.trendsFound",
+                "averageEngagement.$": "$.averageEngagement",
                 "maxVideos": 2,
                 "minEngagementScore": 0.02
               }

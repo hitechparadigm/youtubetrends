@@ -1,6 +1,6 @@
 import { Handler, Context } from 'aws-lambda';
-import { YouTubeApiClient } from '../../src/services/youtube-api-client';
-import { TrendDetectionService } from '../../src/services/trend-detection-service';
+import { YouTubeApiClientSimple } from '../../src/services/youtube-api-client-simple';
+import { TrendDetectionServiceSimple } from '../../src/services/trend-detection-service-simple';
 import { TrendRepository } from '../../src/repositories/trend-repository';
 
 export interface TrendDetectorEvent {
@@ -37,30 +37,27 @@ export const handler: Handler<TrendDetectorEvent, TrendDetectorResponse> = async
   });
 
   try {
-    // Initialize services
-    const youtubeClient = new YouTubeApiClient({
-      region: process.env.AWS_REGION
-    });
-    
+    // Initialize services using the simple, working approach
+    const youtubeClient = new YouTubeApiClientSimple();
     const trendRepository = new TrendRepository({
       region: process.env.AWS_REGION
     });
-
-    const trendDetectionService = new TrendDetectionService(
+    
+    const config = {
+      topics: event.topics || ['technology', 'investing'],
+      regions: [event.region || 'US'],
+      maxResultsPerQuery: event.maxResults || 20,
+      hoursBack: event.hoursBack || 24
+    };
+    
+    const trendDetectionService = new TrendDetectionServiceSimple(
       youtubeClient,
       trendRepository,
-      {
-        topics: event.topics || ['tourism', 'education', 'investing', 'technology'],
-        regions: [event.region || 'US'],
-        maxResultsPerQuery: event.maxResults || 25,
-        hoursBack: event.hoursBack || 24
-      }
+      config
     );
-
-    // Initialize YouTube API client
+    
+    // Initialize and test connection
     await youtubeClient.initialize();
-
-    // Test connection
     const connectionTest = await youtubeClient.testConnection();
     if (!connectionTest) {
       throw new Error('YouTube API connection failed');
@@ -68,14 +65,53 @@ export const handler: Handler<TrendDetectorEvent, TrendDetectorResponse> = async
 
     console.log('YouTube API connection established successfully');
 
-    // Detect trends
+    // Detect trends using the working service
     const results = await trendDetectionService.detectTrends();
     
-    const totalTrends = results.reduce((sum, result) => sum + result.trendsFound, 0);
-    const topicsAnalyzed = results.map(result => result.topic);
+    // Get detailed trends data for each topic
+    const enhancedResults = [];
+    for (const result of results) {
+      if (result.trendsFound > 0) {
+        // Get the actual trends data by searching again
+        const searchResults = await youtubeClient.searchVideos(
+          `${result.topic} trending`,
+          Math.min(result.trendsFound, 5) // Limit to top 5 trends
+        );
+        
+        const videoIds = searchResults.map(r => r.videoId);
+        const videoDetails = await youtubeClient.getVideoDetails(videoIds);
+        
+        enhancedResults.push({
+          ...result,
+          trends: videoDetails.map(video => ({
+            videoId: video.id,
+            title: video.title,
+            description: video.description,
+            viewCount: video.viewCount,
+            likeCount: video.likeCount,
+            commentCount: video.commentCount,
+            publishedAt: video.publishedAt,
+            channelTitle: video.channelTitle,
+            categoryId: video.categoryId,
+            keywords: video.title.toLowerCase().split(' ').slice(0, 10),
+            engagementScore: (video.likeCount + video.commentCount) / Math.max(video.viewCount, 1),
+            topic: result.topic,
+            timestamp: new Date().toISOString()
+          }))
+        });
+      } else {
+        enhancedResults.push({
+          ...result,
+          trends: []
+        });
+      }
+    }
+    
+    const totalTrends = enhancedResults.reduce((sum, result) => sum + result.trendsFound, 0);
+    const topicsAnalyzed = enhancedResults.map(result => result.topic);
 
-    // Get quota usage
-    const quotaUsage = youtubeClient.getQuotaUsage();
+    // Get quota usage (simple client doesn't track this, so we'll estimate)
+    const quotaUsage = { used: config.topics.length * 10 }; // Estimate 10 quota units per topic
 
     console.log('Trend detection completed', {
       totalTrends,
@@ -96,11 +132,12 @@ export const handler: Handler<TrendDetectorEvent, TrendDetectorResponse> = async
       success: true,
       trendsDetected: totalTrends,
       topicsAnalyzed,
-      results: results.map(result => ({
+      results: enhancedResults.map(result => ({
         topic: result.topic,
         trendsFound: result.trendsFound,
         topTrend: result.topTrend,
-        averageEngagement: result.averageEngagement
+        averageEngagement: result.averageEngagement,
+        trends: result.trends // Include the actual trends data
       })),
       executionTime: Date.now() - startTime,
       quotaUsed: quotaUsage.used
