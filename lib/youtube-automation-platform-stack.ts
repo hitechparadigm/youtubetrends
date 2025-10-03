@@ -284,12 +284,7 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
         VIDEO_BUCKET: this.videoBucket.bucketName,
         YOUTUBE_CREDENTIALS_SECRET: this.youtubeCredentialsSecret.secretName
       },
-      role: lambdaExecutionRole,
-      vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PUBLIC
-      },
-      allowPublicSubnet: true
+      role: lambdaExecutionRole
     });
 
     // Content Analyzer Function
@@ -313,7 +308,7 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_18_X,
       entry: 'lambda/video-generator/index.ts',
       handler: 'handler',
-      timeout: cdk.Duration.minutes(45), // Long timeout for video generation
+      timeout: cdk.Duration.minutes(15), // Maximum Lambda timeout (15 minutes)
       memorySize: 2048,
       environment: {
         VIDEO_BUCKET: this.videoBucket.bucketName
@@ -321,10 +316,10 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       role: lambdaExecutionRole
     });
 
-    // CloudWatch dashboard for monitoring
-    const dashboard = new cloudwatch.Dashboard(this, 'YoutubeAutomationDashboard', {
-      dashboardName: 'YouTube-Automation-Platform',
-    });
+    // CloudWatch dashboard for monitoring (placeholder for future implementation)
+    // const dashboard = new cloudwatch.Dashboard(this, 'YoutubeAutomationDashboard', {
+    //   dashboardName: 'YouTube-Automation-Platform',
+    // });
 
     // Output important resource ARNs and names
     new cdk.CfnOutput(this, 'VideoBucketName', {

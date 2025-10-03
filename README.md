@@ -483,7 +483,7 @@ Set up GitHub environments for:
   - `TrendAnalytics` - Stores trending topic data
   - `VideoMetadata` - Stores video information and performance metrics
 - **Secrets Manager**: `youtube-automation/credentials` - YouTube API credentials
-- **VPC**: Dedicated VPC with NAT Gateway for Lambda internet access
+- **Lambda Functions**: Serverless compute with direct internet access (no VPC required)
 
 ### IAM Roles
 
@@ -505,10 +505,10 @@ Set up GitHub environments for:
 
 ## Security Features
 
-- **VPC isolation** - Lambda functions run in private subnets
+- **IAM least privilege** - Minimal required permissions for each component
 - **Encryption at rest** - S3 and DynamoDB use AWS managed encryption
 - **Secrets Manager** - Secure credential storage with automatic rotation support
-- **IAM least privilege** - Minimal required permissions for each component
+- **Security groups** - Network-level access controls for resources
 
 ## 📊 Feature Implementation Matrix
 

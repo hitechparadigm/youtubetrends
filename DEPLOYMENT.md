@@ -91,10 +91,10 @@ After successful deployment, you'll have:
 ### AWS Resources Created
 - **DynamoDB Tables**: `TrendAnalytics`, `VideoMetadata`
 - **S3 Bucket**: `youtube-automation-videos-{account}-{region}`
-- **VPC**: Dedicated VPC with public/private subnets
+- **Lambda Functions**: Three serverless functions with 15-minute timeout limits
 - **IAM Roles**: Lambda execution roles with appropriate permissions
 - **Secrets Manager**: Secret placeholder for YouTube API credentials
-- **CloudWatch**: Log groups and dashboard
+- **CloudWatch**: Log groups and monitoring infrastructure
 
 ### Resource Naming Convention
 All resources are prefixed with `youtube-automation-` for easy identification.
@@ -158,6 +158,14 @@ npx cdk deploy --region us-east-1
 **Error**: `LimitExceeded` for VPCs or other resources
 **Solution**: Check AWS service limits in your account and request increases if needed.
 
+#### 5. Lambda Timeout Validation Error
+**Error**: `Value '2700' at 'timeout' failed to satisfy constraint: Member must have value less than or equal to 900`
+**Solution**: AWS Lambda has a maximum timeout of 15 minutes (900 seconds). This has been fixed in the current version.
+
+#### 6. VPC Network Interface Creation Error
+**Error**: `The provided execution role does not have permissions to call CreateNetworkInterface on EC2`
+**Solution**: Lambda functions now run without VPC configuration for simplified deployment and reduced costs.
+
 ### Validation Commands
 
 ```bash
@@ -180,11 +188,11 @@ npm run test:simple
 ### Initial Deployment Costs
 - **DynamoDB**: $0 (on-demand, pay per request)
 - **S3**: ~$0.02/month (minimal storage)
-- **VPC**: ~$32/month (NAT Gateway)
+- **Lambda**: $0 (pay per execution, no idle costs)
 - **CloudWatch**: ~$3/month (logs and metrics)
 - **Secrets Manager**: ~$0.40/month (1 secret)
 
-**Total**: ~$35-40/month for idle infrastructure
+**Total**: ~$3-5/month for idle infrastructure
 
 ### Operational Costs (Estimated)
 - **Lambda executions**: ~$1-5/month (depends on frequency)

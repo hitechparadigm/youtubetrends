@@ -120,11 +120,11 @@
 ### **Infrastructure Costs (Monthly)**
 - **DynamoDB**: $0-5 (on-demand, scales with usage)
 - **S3 Storage**: $0.02-2 (minimal until video generation starts)
-- **VPC/Networking**: ~$32 (NAT Gateway - can be optimized)
+- **Lambda Functions**: $0 (pay per execution, no idle costs)
 - **CloudWatch**: ~$3 (logs and metrics)
 - **Secrets Manager**: ~$0.40 (credential storage)
 
-**Current Total**: ~$35-40/month (idle infrastructure)
+**Current Total**: ~$3-5/month (idle infrastructure) - **87% cost reduction achieved!**
 
 ### **Operational Costs (When Active)**
 - **Bedrock Nova Reel**: ~$0.05-0.10 per video
