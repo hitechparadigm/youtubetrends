@@ -21,6 +21,7 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
   public readonly contentAnalyzerFunction: nodejs.NodejsFunction;
   public readonly videoGeneratorFunction: nodejs.NodejsFunction;
   public readonly videoProcessorFunction: nodejs.NodejsFunction;
+  public readonly youtubeUploaderFunction: nodejs.NodejsFunction;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -366,6 +367,23 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
       role: lambdaExecutionRole
     });
 
+    // YouTube Uploader Function
+    this.youtubeUploaderFunction = new nodejs.NodejsFunction(this, 'YouTubeUploaderFunction', {
+      functionName: 'youtube-automation-youtube-uploader',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: 'lambda/youtube-uploader/index.ts',
+      handler: 'handler',
+      timeout: cdk.Duration.minutes(15), // YouTube uploads can take time
+      memorySize: 1024,
+      environment: {
+        VIDEO_BUCKET: this.videoBucket.bucketName,
+        TREND_ANALYTICS_TABLE_NAME: this.trendAnalyticsTable.tableName,
+        VIDEO_METADATA_TABLE_NAME: this.videoMetadataTable.tableName,
+        YOUTUBE_CREDENTIALS_SECRET: this.youtubeCredentialsSecret.secretName
+      },
+      role: lambdaExecutionRole
+    });
+
     // CloudWatch dashboard for monitoring (placeholder for future implementation)
     // const dashboard = new cloudwatch.Dashboard(this, 'YoutubeAutomationDashboard', {
     //   dashboardName: 'YouTube-Automation-Platform',
@@ -430,6 +448,11 @@ export class YoutubeAutomationPlatformStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'VideoProcessorFunctionArn', {
       value: this.videoProcessorFunction.functionArn,
       description: 'ARN of the video processor Lambda function',
+    });
+
+    new cdk.CfnOutput(this, 'YouTubeUploaderFunctionArn', {
+      value: this.youtubeUploaderFunction.functionArn,
+      description: 'ARN of the YouTube uploader Lambda function',
     });
   }
 }
