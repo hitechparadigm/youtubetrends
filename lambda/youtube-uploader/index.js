@@ -306,7 +306,7 @@ async function uploadVideoToYouTube(youtubeClient, videoBuffer, metadata, upload
                 }
             },
             media: {
-                body: require('stream').Readable.from(videoBuffer)
+                body: videoBuffer
             }
         };
         const response = await youtube.videos.insert(uploadParams);

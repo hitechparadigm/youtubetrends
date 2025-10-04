@@ -5,14 +5,15 @@
  * Verifies that videos are generated WITH audio
  */
 
-const AWS = require('aws-sdk');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { S3Client, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { spawn } = require('child_process');
 
 class AudioIntegrationTester {
     constructor() {
         this.region = process.env.AWS_REGION || 'us-east-1';
-        this.lambda = new AWS.Lambda({ region: this.region });
-        this.s3 = new AWS.S3({ region: this.region });
+        this.lambda = new LambdaClient({ region: this.region });
+        this.s3 = new S3Client({ region: this.region });
         this.bucket = 'youtube-automation-videos-786673323159-us-east-1';
     }
 
@@ -71,12 +72,12 @@ class AudioIntegrationTester {
         console.log(`    Keyword: ${testEvent.trendData.keyword}`);
 
         try {
-            const result = await this.lambda.invoke({
+            const result = await this.lambda.send(new InvokeCommand({
                 FunctionName: 'youtube-automation-video-generator',
                 Payload: JSON.stringify(testEvent)
-            }).promise();
+            }));
 
-            const response = JSON.parse(result.Payload);
+            const response = JSON.parse(new TextDecoder().decode(result.Payload));
 
             if (!response.success) {
                 throw new Error(`Video generation failed: ${response.error}`);

@@ -1,0 +1,27 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowBedrockAsyncInvoke",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "bedrock.amazonaws.com"
+            },
+            "Action": [
+                "s3:PutObject",
+                "s3:PutObjectAcl",
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::youtube-automation-luma-786673323159",
+                "arn:aws:s3:::youtube-automation-luma-786673323159/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:SourceAccount": "786673323159"
+                }
+            }
+        }
+    ]
+}

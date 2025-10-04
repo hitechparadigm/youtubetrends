@@ -35,8 +35,18 @@ async function testAudioFix() {
         videoConfig: {
             durationSeconds: 6,
             style: 'professional',
-            targetAudience: 'professionals'
-        }
+            targetAudience: 'professionals',
+            includeAudio: true,  // CRITICAL: Enable audio generation
+            fps: 24,
+            dimension: '1280x720',
+            quality: 'high'
+        },
+        audioConfig: {
+            voice: 'Matthew',
+            speed: 'medium',
+            language: 'en-US'
+        },
+        scriptPrompt: 'Create a professional video about ETF investing benefits, showing charts and financial data with clear explanations of diversification and low fees.'
     };
 
     console.log('📋 Test Configuration:');
