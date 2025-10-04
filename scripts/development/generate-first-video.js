@@ -5,7 +5,7 @@
  * Production script using real AWS services
  */
 
-const { handler: videoGenerator } = require('./lambda/video-generator/dist/index.js');
+const { handler: videoGenerator } = require('../../lambda/optimized-video-generator/index.ts');
 
 async function generateFirstVideo() {
   console.log('🎬 GENERATING YOUR FIRST AUTOMATED YOUTUBE VIDEO');
@@ -37,23 +37,29 @@ async function generateFirstVideo() {
     console.log('');
 
     const videoEvent = {
-      scriptPrompt: `Create an engaging video about 2025 AI and technology trends. Show futuristic tech environments, AI interfaces, robots, smart cities, quantum computers, VR/AR experiences, and green technology. Make it visually stunning and informative for tech enthusiasts. Include dynamic graphics showing innovation, automation, and digital transformation. Professional, modern, high-tech aesthetic.`,
-      
-      topic: 'technology',
-      trendId: 'ai_tech_trends_2025_001',
-      
-      videoConfig: {
-        durationSeconds: 6, // 6 seconds - likely supported duration for testing
-        fps: 24,
-        dimension: '1280x720',
-        quality: 'high',
-        includeAudio: true
+      topic: 'AI Technology Trends 2025',
+      category: 'technology',
+      trendData: {
+        keyword: 'AI technology trends 2025',
+        searchVolume: 75000,
+        relatedTerms: ['artificial intelligence', 'machine learning', 'automation', 'AI tools'],
+        context: {
+          newsArticles: [
+            'AI productivity tools boost efficiency by 40%',
+            'Machine learning transforms business operations',
+            'Automation revolutionizes workplace productivity'
+          ],
+          socialMentions: [
+            'AI tools are game-changers for productivity',
+            'Machine learning is the future of business',
+            'Automation saves hours of manual work'
+          ]
+        }
       },
-      
-      audioConfig: {
-        voice: 'Matthew', // Professional, authoritative voice
-        speed: 'medium',
-        language: 'en-US'
+      videoConfig: {
+        durationSeconds: 6,
+        style: 'professional',
+        targetAudience: 'professionals'
       }
     };
 

@@ -15,6 +15,7 @@
     "dev:test": "node scripts/development/create-simple-video-test.js",
     "dev:check": "node scripts/development/check-s3-files.js",
     "dev:validate": "node scripts/development/quick-validation.js",
+    "dev:test-audio": "node scripts/development/test-audio-integration-fix.js",
     "deploy": "node scripts/deploy/deploy-production-ready.js",
     "deploy:scheduler": "node scripts/deploy/deploy-scheduler.js",
     "deploy:infrastructure": "node scripts/deploy/deploy-complete-solution.js",

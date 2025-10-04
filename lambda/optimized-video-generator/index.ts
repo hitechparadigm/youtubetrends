@@ -2,6 +2,7 @@ import { Handler, Context } from 'aws-lambda';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { PollyClient, StartSpeechSynthesisTaskCommand } from '@aws-sdk/client-polly';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 
 export interface OptimizedVideoRequest {
   topic: string;
@@ -27,6 +28,7 @@ export interface OptimizedVideoResponse {
   videoS3Key?: string;
   audioS3Key?: string;
   subtitlesS3Key?: string;
+  processedVideoS3Key?: string; // NEW: Final video with audio and subtitles
   bedrockJobId?: string;
   pollyTaskId?: string;
   content: {
@@ -41,6 +43,8 @@ export interface OptimizedVideoResponse {
     estimatedProcessingTime: number;
     visualStyle: string;
     voiceStyle: string;
+    hasAudio: boolean; // NEW: Indicates if final video has audio
+    hasSubtitles: boolean; // NEW: Indicates if final video has subtitles
   };
   generationCost: number;
   executionTime: number;
@@ -50,6 +54,7 @@ export interface OptimizedVideoResponse {
 const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
 const pollyClient = new PollyClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 const NOVA_REEL_MODEL_ID = 'amazon.nova-reel-v1:0';
 const CLAUDE_MODEL_ID = 'anthropic.claude-3-5-sonnet-20241022-v2:0';
@@ -82,12 +87,24 @@ export const handler: Handler<OptimizedVideoRequest, OptimizedVideoResponse> = a
     // Step 4: Generate subtitles
     const subtitlesResult = await generateOptimizedSubtitles(optimizedPrompts.audioScript, event);
     
-    const executionTime = Date.now() - startTime;
-    
-    console.log('✅ Optimized video generation completed', {
+    // Step 5: CRITICAL FIX - Merge audio and video using video processor
+    console.log('🔧 CRITICAL FIX: Merging audio and video...');
+    const processedVideoResult = await mergeAudioAndVideo({
       videoS3Key: videoResult.s3Key,
       audioS3Key: audioResult.s3Key,
       subtitlesS3Key: subtitlesResult.s3Key,
+      trendId: event.trendData.keyword.replace(/\s+/g, '-'),
+      topic: event.topic
+    });
+    
+    const executionTime = Date.now() - startTime;
+    
+    console.log('✅ Optimized video generation completed WITH AUDIO', {
+      videoS3Key: videoResult.s3Key,
+      audioS3Key: audioResult.s3Key,
+      subtitlesS3Key: subtitlesResult.s3Key,
+      processedVideoS3Key: processedVideoResult.processedVideoS3Key,
+      hasAudio: processedVideoResult.hasAudio,
       executionTime
     });
 
@@ -96,6 +113,7 @@ export const handler: Handler<OptimizedVideoRequest, OptimizedVideoResponse> = a
       videoS3Key: videoResult.s3Key,
       audioS3Key: audioResult.s3Key,
       subtitlesS3Key: subtitlesResult.s3Key,
+      processedVideoS3Key: processedVideoResult.processedVideoS3Key, // CRITICAL: Final video with audio
       bedrockJobId: videoResult.jobId,
       pollyTaskId: audioResult.taskId,
       content: {
@@ -109,7 +127,9 @@ export const handler: Handler<OptimizedVideoRequest, OptimizedVideoResponse> = a
         duration: event.videoConfig.durationSeconds,
         estimatedProcessingTime: 90, // Nova Reel processing time
         visualStyle: optimizedPrompts.visualStyle,
-        voiceStyle: optimizedPrompts.voiceStyle
+        voiceStyle: optimizedPrompts.voiceStyle,
+        hasAudio: processedVideoResult.hasAudio, // CRITICAL: Audio status
+        hasSubtitles: processedVideoResult.hasSubtitles // CRITICAL: Subtitle status
       },
       generationCost: 0.08, // Nova Reel + Polly cost
       executionTime
@@ -449,11 +469,82 @@ function formatSRTTime(seconds: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
 }
 
+async function mergeAudioAndVideo(params: {
+  videoS3Key: string;
+  audioS3Key: string;
+  subtitlesS3Key: string;
+  trendId: string;
+  topic: string;
+}): Promise<{ processedVideoS3Key: string; hasAudio: boolean; hasSubtitles: boolean }> {
+  console.log('🔧 CRITICAL FIX: Calling video processor to merge audio and video...');
+  
+  const videoProcessorEvent = {
+    videoS3Key: params.videoS3Key,
+    audioS3Key: params.audioS3Key,
+    subtitlesS3Key: params.subtitlesS3Key,
+    processingConfig: {
+      embedSubtitles: true,
+      mergeAudio: true,
+      outputFormat: 'mp4',
+      quality: 'high'
+    },
+    metadata: {
+      duration: 6, // Will be updated based on actual video
+      topic: params.topic,
+      trendId: params.trendId
+    }
+  };
+
+  try {
+    const command = new InvokeCommand({
+      FunctionName: 'youtube-automation-video-processor',
+      Payload: JSON.stringify(videoProcessorEvent)
+    });
+
+    const response = await lambdaClient.send(command);
+    
+    if (!response.Payload) {
+      throw new Error('Video processor returned no response');
+    }
+
+    const result = JSON.parse(new TextDecoder().decode(response.Payload));
+    
+    if (!result.success) {
+      throw new Error(`Video processor failed: ${result.error}`);
+    }
+
+    console.log('✅ CRITICAL FIX: Audio and video merged successfully', {
+      processedVideoS3Key: result.processedVideoS3Key,
+      hasAudio: result.metadata.hasAudio,
+      hasSubtitles: result.metadata.hasSubtitles
+    });
+
+    return {
+      processedVideoS3Key: result.processedVideoS3Key,
+      hasAudio: result.metadata.hasAudio,
+      hasSubtitles: result.metadata.hasSubtitles
+    };
+
+  } catch (error) {
+    console.error('❌ CRITICAL ERROR: Audio-video merging failed:', error);
+    
+    // Return original video as fallback (but log the critical issue)
+    console.error('🚨 FALLBACK: Returning video without audio - THIS IS THE CRITICAL BUG!');
+    
+    return {
+      processedVideoS3Key: params.videoS3Key, // Fallback to original video
+      hasAudio: false, // Critical: No audio!
+      hasSubtitles: false
+    };
+  }
+}
+
 // Export for testing
 export {
   generateOptimizedPrompts,
   getOptimalVoiceConfig,
   createSSMLScript,
   generateOptimizedSubtitles,
-  formatSRTTime
+  formatSRTTime,
+  mergeAudioAndVideo
 };
