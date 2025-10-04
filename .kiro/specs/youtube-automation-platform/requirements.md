@@ -107,3 +107,47 @@ This document outlines the requirements for an automated YouTube content creatio
 5. WHEN I update configurations THEN the system SHALL validate settings and apply changes to future content generation cycles
 6. WHEN I manage audio settings THEN the system SHALL allow me to specify voice characteristics, speaking pace, and topic-specific vocabulary preferences
 7. IF configuration changes affect costs THEN the system SHALL provide cost impact estimates before applying changes
+
+### Requirement 9
+
+**User Story:** As a content creator, I want videos to include professional audio narration with real trending information, so that my content provides actual value to viewers and improves engagement.
+
+#### Acceptance Criteria
+
+1. WHEN trend analysis detects specific topics (e.g., "REITs", "Tesla") THEN the system SHALL generate detailed content prompts that expand on those trends (e.g., "Top 5 REITs to invest in 2025" with specific REIT analysis)
+2. WHEN generating content for investing topics THEN the system SHALL use Claude AI to research and include real financial information with specific stock tickers, ETF symbols, current performance data, and actionable investment advice
+3. WHEN creating video scripts THEN the system SHALL generate 800-1000 word narration scripts that include current market data, trending information, and factual content with specific examples and recommendations
+4. WHEN generating audio narration THEN the system SHALL use Amazon Polly Neural voices to create professional voice-over that is properly timed and synchronized with video duration
+5. WHEN producing videos THEN the system SHALL ensure audio narration timing matches video length using SSML timing controls and strategic pauses
+6. WHEN creating educational content THEN the system SHALL include specific, actionable information with step-by-step guidance, real examples, and measurable outcomes
+7. WHEN generating scripts THEN the system SHALL structure content with timestamps, clear talking points, smooth transitions, and compelling calls-to-action
+8. WHEN processing trends THEN the system SHALL create unique, valuable prompts for each detected trend rather than using generic templates
+9. IF audio generation fails THEN the system SHALL retry with alternative voice settings, adjust SSML timing, or fallback to text-only content with comprehensive subtitles
+
+### Requirement 10
+
+**User Story:** As a content creator, I want videos to include custom thumbnails and comprehensive SEO optimization, so that my content is easily discoverable and attracts viewers.
+
+#### Acceptance Criteria
+
+1. WHEN generating videos THEN the system SHALL create custom thumbnails using AI image generation based on video content and topic
+2. WHEN creating thumbnails THEN the system SHALL include eye-catching visuals, relevant text overlays, and topic-specific imagery (e.g., financial charts for investing content)
+3. WHEN optimizing for SEO THEN the system SHALL generate keyword-rich titles that include trending search terms and topic-specific keywords
+4. WHEN creating descriptions THEN the system SHALL include comprehensive descriptions with timestamps, key points, relevant hashtags, and call-to-actions
+5. WHEN setting tags THEN the system SHALL use a mix of broad and specific tags related to the topic, trending keywords, and target audience interests
+6. WHEN uploading videos THEN the system SHALL set appropriate categories, enable comments and ratings, and configure monetization settings
+7. WHEN generating SEO content THEN the system SHALL research current trending keywords and incorporate them naturally into titles and descriptions
+8. IF thumbnail generation fails THEN the system SHALL use fallback thumbnail templates or extract frames from the video content
+
+### Requirement 11
+
+**User Story:** As a content creator, I want videos to include subtitles and accessibility features, so that my content reaches a wider audience and complies with accessibility standards.
+
+#### Acceptance Criteria
+
+1. WHEN generating videos with audio narration THEN the system SHALL automatically create subtitle files (SRT format) from the script content
+2. WHEN creating subtitles THEN the system SHALL ensure proper timing synchronization with audio narration
+3. WHEN uploading to YouTube THEN the system SHALL include subtitle files to enable closed captions
+4. WHEN generating content THEN the system SHALL ensure text overlays and visual elements are readable and accessible
+5. WHEN creating educational content THEN the system SHALL include clear visual indicators and text that support the audio narration
+6. IF subtitle generation fails THEN the system SHALL upload videos without subtitles but log the issue for manual review

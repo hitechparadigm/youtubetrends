@@ -1,399 +1,293 @@
 import { Handler, Context } from 'aws-lambda';
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { spawn } from 'child_process';
+import { promises as fs } from 'fs';
+import { join } from 'path';
 
 export interface VideoProcessorEvent {
   videoS3Key: string;
   audioS3Key?: string;
-  topic: string;
-  trendId: string;
+  subtitlesS3Key?: string;
+  processingConfig: {
+    embedSubtitles: boolean;
+    mergeAudio: boolean;
+    outputFormat: 'mp4' | 'webm';
+    quality: 'high' | 'medium' | 'low';
+  };
   metadata: {
     duration: number;
-    format: string;
-    hasAudio: boolean;
-  };
-  processingConfig?: {
-    outputFormat: string;
-    quality: string;
-    resolution: string;
-    bitrate: string;
+    topic: string;
+    trendId: string;
   };
 }
 
 export interface VideoProcessorResponse {
   success: boolean;
   processedVideoS3Key?: string;
-  mediaConvertJobId?: string;
-  outputMetadata: {
-    duration: number;
-    fileSize: number;
-    format: string;
-    resolution: string;
-    bitrate: string;
-    audioChannels: number;
-    isYouTubeOptimized: boolean;
+  metadata: {
+    originalSize: number;
+    processedSize: number;
+    hasAudio: boolean;
+    hasSubtitles: boolean;
+    processingTime: number;
   };
-  processingCost: number;
-  executionTime: number;
   error?: string;
 }
+
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const PROCESSED_BUCKET = process.env.VIDEO_BUCKET || 'youtube-automation-videos';
 
 export const handler: Handler<VideoProcessorEvent, VideoProcessorResponse> = async (
   event: VideoProcessorEvent,
   context: Context
 ): Promise<VideoProcessorResponse> => {
   const startTime = Date.now();
+  const tempDir = '/tmp';
   
-  console.log('Video Processor Lambda started', {
-    requestId: context.awsRequestId,
+  console.log('🎬 Video Processor started', {
     videoS3Key: event.videoS3Key,
     audioS3Key: event.audioS3Key,
-    topic: event.topic,
-    duration: event.metadata.duration
+    subtitlesS3Key: event.subtitlesS3Key,
+    embedSubtitles: event.processingConfig.embedSubtitles,
+    mergeAudio: event.processingConfig.mergeAudio
   });
 
   try {
-    // Create MediaConvert job for YouTube optimization
-    const mediaConvertResult = await processVideoForYouTube(event);
+    // Step 1: Download video file from S3
+    const videoPath = join(tempDir, 'input-video.mp4');
+    const originalSize = await downloadFromS3(event.videoS3Key, videoPath);
     
-    // Wait for job completion
-    const completedJob = await waitForJobCompletion(mediaConvertResult.jobId);
+    let audioPath: string | null = null;
+    let subtitlesPath: string | null = null;
     
-    // Get output file metadata
-    const outputMetadata = await getProcessedVideoMetadata(
-      mediaConvertResult.outputS3Key,
-      event.processingConfig
-    );
-
-    // Calculate processing cost
-    const processingCost = calculateProcessingCost(
-      event.metadata.duration,
-      outputMetadata.resolution
-    );
-
-    console.log('Video processing completed successfully', {
-      jobId: mediaConvertResult.jobId,
-      outputS3Key: mediaConvertResult.outputS3Key,
-      duration: outputMetadata.duration,
-      fileSize: outputMetadata.fileSize,
-      cost: processingCost,
-      executionTime: Date.now() - startTime
+    // Step 2: Download audio file if needed
+    if (event.audioS3Key && event.processingConfig.mergeAudio) {
+      audioPath = join(tempDir, 'input-audio.mp3');
+      await downloadFromS3(event.audioS3Key, audioPath);
+      console.log('✅ Audio file downloaded');
+    }
+    
+    // Step 3: Download subtitles file if needed
+    if (event.subtitlesS3Key && event.processingConfig.embedSubtitles) {
+      subtitlesPath = join(tempDir, 'subtitles.srt');
+      await downloadFromS3(event.subtitlesS3Key, subtitlesPath);
+      console.log('✅ Subtitles file downloaded');
+    }
+    
+    // Step 4: Process video with FFmpeg
+    const outputPath = join(tempDir, 'processed-video.mp4');
+    await processVideoWithFFmpeg({
+      inputVideo: videoPath,
+      inputAudio: audioPath,
+      inputSubtitles: subtitlesPath,
+      output: outputPath,
+      config: event.processingConfig
+    });
+    
+    // Step 5: Upload processed video back to S3
+    const processedS3Key = `processed/${event.metadata.trendId}/video-with-audio-subtitles.mp4`;
+    const processedSize = await uploadToS3(outputPath, processedS3Key);
+    
+    // Step 6: Cleanup temporary files
+    await cleanupTempFiles([videoPath, audioPath, subtitlesPath, outputPath]);
+    
+    const processingTime = Date.now() - startTime;
+    
+    console.log('✅ Video processing completed', {
+      processedS3Key,
+      originalSize,
+      processedSize,
+      processingTime
     });
 
     return {
       success: true,
-      processedVideoS3Key: mediaConvertResult.outputS3Key,
-      mediaConvertJobId: mediaConvertResult.jobId,
-      outputMetadata,
-      processingCost,
-      executionTime: Date.now() - startTime
+      processedVideoS3Key: processedS3Key,
+      metadata: {
+        originalSize,
+        processedSize,
+        hasAudio: !!audioPath,
+        hasSubtitles: !!subtitlesPath,
+        processingTime
+      }
     };
 
   } catch (error) {
-    console.error('Video processing failed', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      requestId: context.awsRequestId
-    });
-
+    console.error('❌ Video processing failed:', error);
+    
     return {
       success: false,
-      outputMetadata: {
-        duration: 0,
-        fileSize: 0,
-        format: '',
-        resolution: '',
-        bitrate: '',
-        audioChannels: 0,
-        isYouTubeOptimized: false
+      metadata: {
+        originalSize: 0,
+        processedSize: 0,
+        hasAudio: false,
+        hasSubtitles: false,
+        processingTime: Date.now() - startTime
       },
-      processingCost: 0,
-      executionTime: Date.now() - startTime,
       error: error instanceof Error ? error.message : String(error)
     };
   }
 };
 
-async function processVideoForYouTube(event: VideoProcessorEvent): Promise<{
-  jobId: string;
-  outputS3Key: string;
-}> {
-  console.log('Starting MediaConvert job for YouTube optimization');
-
-  try {
-    const { MediaConvertClient, CreateJobCommand } = 
-      await import('@aws-sdk/client-mediaconvert');
-
-    // Get MediaConvert endpoint
-    const mediaConvert = new MediaConvertClient({
-      region: process.env.AWS_REGION || 'us-east-1'
-    });
-
-    const processingConfig = event.processingConfig || {
-      outputFormat: 'mp4',
-      quality: 'high',
-      resolution: '1920x1080',
-      bitrate: '8000'
-    };
-
-    const outputS3Key = `processed/${event.topic}/${event.trendId}_youtube_${Date.now()}.mp4`;
-    const inputS3Uri = `s3://${process.env.VIDEO_BUCKET}/${event.videoS3Key}`;
-    const outputS3Uri = `s3://${process.env.VIDEO_BUCKET}/${outputS3Key}`;
-
-    // Create job settings optimized for YouTube
-    const jobSettings = createYouTubeOptimizedJobSettings(
-      inputS3Uri,
-      outputS3Uri,
-      event.audioS3Key ? `s3://${process.env.VIDEO_BUCKET}/${event.audioS3Key}` : undefined,
-      processingConfig,
-      event.metadata
-    );
-
-    const response = await mediaConvert.send(new CreateJobCommand({
-      Role: process.env.MEDIACONVERT_ROLE_ARN,
-      Settings: jobSettings,
-      Queue: process.env.MEDIACONVERT_QUEUE_ARN,
-      UserMetadata: {
-        topic: event.topic,
-        trendId: event.trendId,
-        originalDuration: event.metadata.duration.toString()
-      }
-    }));
-
-    console.log('MediaConvert job created', { 
-      jobId: response.Job?.Id,
-      outputS3Key 
-    });
-
-    return {
-      jobId: response.Job?.Id || 'unknown',
-      outputS3Key
-    };
-
-  } catch (error) {
-    console.error('MediaConvert job creation failed', error);
-    throw error;
+async function downloadFromS3(s3Key: string, localPath: string): Promise<number> {
+  console.log(`📥 Downloading ${s3Key} to ${localPath}`);
+  
+  const command = new GetObjectCommand({
+    Bucket: PROCESSED_BUCKET,
+    Key: s3Key
+  });
+  
+  const response = await s3Client.send(command);
+  
+  if (!response.Body) {
+    throw new Error(`File not found: ${s3Key}`);
   }
+  
+  const chunks: Uint8Array[] = [];
+  const stream = response.Body as any;
+  
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  
+  const buffer = Buffer.concat(chunks);
+  await fs.writeFile(localPath, buffer);
+  
+  console.log(`✅ Downloaded ${buffer.length} bytes`);
+  return buffer.length;
 }
 
-function createYouTubeOptimizedJobSettings(
-  inputS3Uri: string,
-  outputS3Uri: string,
-  audioS3Uri: string | undefined,
-  processingConfig: any,
-  metadata: any
-): any {
-  const inputs: any[] = [
-    {
-      FileInput: inputS3Uri,
-      VideoSelector: {
-        ColorSpace: 'REC_709',
-        ColorSpaceUsage: 'FORCE'
-      }
-    }
-  ];
+async function uploadToS3(localPath: string, s3Key: string): Promise<number> {
+  console.log(`📤 Uploading ${localPath} to ${s3Key}`);
+  
+  const fileBuffer = await fs.readFile(localPath);
+  
+  const command = new PutObjectCommand({
+    Bucket: PROCESSED_BUCKET,
+    Key: s3Key,
+    Body: fileBuffer,
+    ContentType: 'video/mp4'
+  });
+  
+  await s3Client.send(command);
+  
+  console.log(`✅ Uploaded ${fileBuffer.length} bytes`);
+  return fileBuffer.length;
+}
 
-  // Add audio input if available
-  if (audioS3Uri) {
-    inputs.push({
-      FileInput: audioS3Uri,
-      AudioSelectors: {
-        'Audio Selector 1': {
-          DefaultSelection: 'DEFAULT'
-        }
-      }
-    });
-  }
-
-  return {
-    Inputs: inputs,
-    OutputGroups: [
-      {
-        Name: 'YouTube Optimized',
-        OutputGroupSettings: {
-          Type: 'FILE_GROUP_SETTINGS',
-          FileGroupSettings: {
-            Destination: outputS3Uri.replace(/\/[^\/]*$/, '/'),
-            DestinationSettings: {
-              S3Settings: {
-                StorageClass: 'STANDARD'
-              }
-            }
-          }
-        },
-        Outputs: [
-          {
-            NameModifier: '_youtube_optimized',
-            VideoDescription: {
-              CodecSettings: {
-                Codec: 'H_264',
-                H264Settings: {
-                  RateControlMode: 'CBR',
-                  Bitrate: parseInt(processingConfig.bitrate) * 1000, // Convert to bps
-                  MaxBitrate: parseInt(processingConfig.bitrate) * 1200,
-                  Profile: 'HIGH',
-                  Level: 'LEVEL_4_1',
-                  GopSize: 30,
-                  GopSizeUnits: 'FRAMES',
-                  FramerateControl: 'SPECIFIED',
-                  FramerateNumerator: 30,
-                  FramerateDenominator: 1,
-                  ColorMetadata: 'INSERT',
-                  TimecodeInsertion: 'DISABLED'
-                }
-              },
-              Width: parseInt(processingConfig.resolution.split('x')[0]),
-              Height: parseInt(processingConfig.resolution.split('x')[1]),
-              RespondToAfd: 'NONE',
-              ScalingBehavior: 'DEFAULT',
-              TimecodeInsertion: 'DISABLED',
-              AntiAlias: 'ENABLED',
-              Sharpness: 50,
-              AfdSignaling: 'NONE',
-              DropFrameTimecode: 'ENABLED'
-            },
-            AudioDescriptions: audioS3Uri ? [
-              {
-                AudioTypeControl: 'FOLLOW_INPUT',
-                AudioSourceName: 'Audio Selector 1',
-                CodecSettings: {
-                  Codec: 'AAC',
-                  AacSettings: {
-                    AudioDescriptionBroadcasterMix: 'NORMAL',
-                    Bitrate: 128000,
-                    RateControlMode: 'CBR',
-                    CodecProfile: 'LC',
-                    CodingMode: 'CODING_MODE_2_0',
-                    RawFormat: 'NONE',
-                    SampleRate: 48000,
-                    Specification: 'MPEG4'
-                  }
-                },
-                LanguageCodeControl: 'FOLLOW_INPUT'
-              }
-            ] : [],
-            ContainerSettings: {
-              Container: 'MP4',
-              Mp4Settings: {
-                CslgAtom: 'INCLUDE',
-                FreeSpaceBox: 'EXCLUDE',
-                MoovPlacement: 'PROGRESSIVE_DOWNLOAD'
-              }
-            }
-          }
-        ]
-      }
-    ],
-    TimecodeConfig: {
-      Source: 'ZEROBASED'
-    }
+interface FFmpegProcessingOptions {
+  inputVideo: string;
+  inputAudio: string | null;
+  inputSubtitles: string | null;
+  output: string;
+  config: {
+    embedSubtitles: boolean;
+    mergeAudio: boolean;
+    outputFormat: string;
+    quality: string;
   };
 }
 
-async function waitForJobCompletion(jobId: string): Promise<any> {
-  console.log('Waiting for MediaConvert job completion', { jobId });
-
-  try {
-    const { MediaConvertClient, GetJobCommand } = 
-      await import('@aws-sdk/client-mediaconvert');
-
-    const mediaConvert = new MediaConvertClient({
-      region: process.env.AWS_REGION || 'us-east-1'
+async function processVideoWithFFmpeg(options: FFmpegProcessingOptions): Promise<void> {
+  console.log('🎞️ Processing video with FFmpeg...');
+  
+  const ffmpegArgs: string[] = [];
+  
+  // Input video
+  ffmpegArgs.push('-i', options.inputVideo);
+  
+  // Input audio (if provided)
+  if (options.inputAudio && options.config.mergeAudio) {
+    ffmpegArgs.push('-i', options.inputAudio);
+  }
+  
+  // Video codec and quality settings
+  const qualitySettings = getQualitySettings(options.config.quality);
+  ffmpegArgs.push(...qualitySettings);
+  
+  // Audio settings
+  if (options.inputAudio && options.config.mergeAudio) {
+    ffmpegArgs.push('-c:a', 'aac', '-b:a', '128k');
+    ffmpegArgs.push('-map', '0:v:0', '-map', '1:a:0'); // Map video from input 0, audio from input 1
+  } else {
+    ffmpegArgs.push('-c:a', 'copy'); // Copy existing audio if any
+  }
+  
+  // Subtitle embedding
+  if (options.inputSubtitles && options.config.embedSubtitles) {
+    // Burn subtitles into video (hardcoded)
+    ffmpegArgs.push('-vf', `subtitles=${options.inputSubtitles}:force_style='FontSize=24,PrimaryColour=&Hffffff,OutlineColour=&H000000,Outline=2'`);
+  }
+  
+  // Output settings
+  ffmpegArgs.push('-f', 'mp4');
+  ffmpegArgs.push('-movflags', '+faststart'); // Optimize for web streaming
+  ffmpegArgs.push('-y'); // Overwrite output file
+  ffmpegArgs.push(options.output);
+  
+  console.log('🔧 FFmpeg command:', ['ffmpeg', ...ffmpegArgs].join(' '));
+  
+  return new Promise((resolve, reject) => {
+    const ffmpeg = spawn('ffmpeg', ffmpegArgs, {
+      stdio: ['pipe', 'pipe', 'pipe']
     });
-
-    const maxWaitTime = 20 * 60 * 1000; // 20 minutes
-    const pollInterval = 30 * 1000; // 30 seconds
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < maxWaitTime) {
-      const response = await mediaConvert.send(new GetJobCommand({
-        Id: jobId
-      }));
-
-      const status = response.Job?.Status;
-      console.log('MediaConvert job status', { jobId, status });
-
-      if (status === 'COMPLETE') {
-        console.log('MediaConvert job completed successfully');
-        return response.Job;
-      } else if (status === 'ERROR' || status === 'CANCELED') {
-        throw new Error(`MediaConvert job failed with status: ${status}`);
+    
+    let stderr = '';
+    
+    ffmpeg.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        console.log('✅ FFmpeg processing completed successfully');
+        resolve();
+      } else {
+        console.error('❌ FFmpeg failed with code:', code);
+        console.error('FFmpeg stderr:', stderr);
+        reject(new Error(`FFmpeg failed with exit code ${code}`));
       }
+    });
+    
+    ffmpeg.on('error', (error) => {
+      console.error('❌ FFmpeg spawn error:', error);
+      reject(error);
+    });
+  });
+}
 
-      // Wait before next poll
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+function getQualitySettings(quality: string): string[] {
+  switch (quality) {
+    case 'high':
+      return ['-c:v', 'libx264', '-crf', '18', '-preset', 'medium'];
+    case 'medium':
+      return ['-c:v', 'libx264', '-crf', '23', '-preset', 'medium'];
+    case 'low':
+      return ['-c:v', 'libx264', '-crf', '28', '-preset', 'fast'];
+    default:
+      return ['-c:v', 'libx264', '-crf', '23', '-preset', 'medium'];
+  }
+}
+
+async function cleanupTempFiles(filePaths: (string | null)[]): Promise<void> {
+  console.log('🧹 Cleaning up temporary files...');
+  
+  for (const filePath of filePaths) {
+    if (filePath) {
+      try {
+        await fs.unlink(filePath);
+        console.log(`🗑️ Deleted: ${filePath}`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to delete ${filePath}:`, error);
+      }
     }
-
-    throw new Error('MediaConvert job timed out');
-
-  } catch (error) {
-    console.error('Error waiting for MediaConvert job', error);
-    throw error;
   }
 }
 
-async function getProcessedVideoMetadata(
-  s3Key: string,
-  processingConfig: any
-): Promise<{
-  duration: number;
-  fileSize: number;
-  format: string;
-  resolution: string;
-  bitrate: string;
-  audioChannels: number;
-  isYouTubeOptimized: boolean;
-}> {
-  try {
-    const { S3Client, HeadObjectCommand } = await import('@aws-sdk/client-s3');
-    
-    const s3 = new S3Client({ region: process.env.AWS_REGION });
-    
-    const response = await s3.send(new HeadObjectCommand({
-      Bucket: process.env.VIDEO_BUCKET,
-      Key: s3Key
-    }));
-
-    // Extract metadata from S3 object
-    const fileSize = response.ContentLength || 0;
-    const contentType = response.ContentType || 'video/mp4';
-
-    // Calculate duration from file size and bitrate (approximate)
-    const bitrateKbps = parseInt(processingConfig?.bitrate || '8000');
-    const estimatedDuration = Math.round((fileSize * 8) / (bitrateKbps * 1000));
-
-    return {
-      duration: estimatedDuration,
-      fileSize,
-      format: 'mp4',
-      resolution: processingConfig?.resolution || '1920x1080',
-      bitrate: `${bitrateKbps}k`,
-      audioChannels: 2,
-      isYouTubeOptimized: true
-    };
-
-  } catch (error) {
-    console.error('Failed to get processed video metadata', error);
-    
-    // Return default metadata if S3 call fails
-    return {
-      duration: 0,
-      fileSize: 0,
-      format: 'mp4',
-      resolution: processingConfig?.resolution || '1920x1080',
-      bitrate: processingConfig?.bitrate || '8000k',
-      audioChannels: 2,
-      isYouTubeOptimized: true
-    };
-  }
-}
-
-function calculateProcessingCost(durationSeconds: number, resolution: string): number {
-  // MediaConvert pricing (approximate)
-  const durationMinutes = durationSeconds / 60;
-  
-  // Pricing varies by resolution
-  const pricePerMinute = resolution.includes('1080') ? 0.0075 : 0.0045; // HD vs SD
-  
-  const processingCost = durationMinutes * pricePerMinute;
-  
-  return Math.round(processingCost * 100) / 100; // Round to 2 decimal places
-}
+// Export for testing
+export {
+  downloadFromS3,
+  uploadToS3,
+  processVideoWithFFmpeg,
+  getQualitySettings
+};

@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handler = void 0;
-const video_repository_1 = require("../../src/repositories/video-repository");
-const video_metadata_1 = require("../../src/models/video-metadata");
+// Remove old imports - using direct implementation instead
+// const video_repository_1 = require("../../src/repositories/video-repository");
+// const video_metadata_1 = require("../../src/models/video-metadata");
 const handler = async (event, context) => {
     const startTime = Date.now();
     console.log('YouTube Uploader Lambda started', {
@@ -346,9 +347,14 @@ async function uploadVideoToYouTube(youtubeClient, videoBuffer, metadata, upload
 async function storeVideoMetadata(event, uploadResult, metadata) {
     console.log('Storing video metadata in DynamoDB');
     try {
-        const videoRepository = new video_repository_1.VideoRepository({
-            region: process.env.AWS_REGION
+        // Simple DynamoDB storage without repository pattern
+        const { DynamoDBClient, PutItemCommand } = await Promise.resolve().then(() => require('@aws-sdk/client-dynamodb'));
+        const { marshall } = await Promise.resolve().then(() => require('@aws-sdk/util-dynamodb'));
+        
+        const dynamoClient = new DynamoDBClient({
+            region: process.env.AWS_REGION || 'us-east-1'
         });
+        
         const videoMetadata = {
             videoId: uploadResult.videoId,
             youtubeId: uploadResult.videoId,
@@ -366,12 +372,17 @@ async function storeVideoMetadata(event, uploadResult, metadata) {
             generationCost: 0,
             processingCost: 0,
             s3Key: event.processedVideoS3Key,
-            status: video_metadata_1.VideoStatus.PUBLISHED,
+            status: 'PUBLISHED',
             performanceMetrics: {},
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
-        await videoRepository.saveVideo(videoMetadata);
+        
+        await dynamoClient.send(new PutItemCommand({
+            TableName: process.env.VIDEOS_TABLE || 'youtube-automation-videos-hot',
+            Item: marshall(videoMetadata)
+        }));
+        
         console.log('Video metadata stored successfully');
     }
     catch (error) {

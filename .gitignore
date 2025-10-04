@@ -145,7 +145,6 @@ test-outputs/
 .local/
 local-config.json
 
-# Package manager
-package-lock.json
+# Package manager (keep package-lock.json for reproducible builds)
 yarn.lock
 pnpm-lock.yaml
