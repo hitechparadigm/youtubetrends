@@ -75,11 +75,11 @@ A fully automated system that creates and publishes professional YouTube videos 
 
 ### ⚡ **Development Speed Comparison**
 
-| Approach                            | Timeline     | Lines of Code | Success Rate | Developer Hours |
-| ----------------------------------- | ------------ | ------------- | ------------ | --------------- |
-| **Traditional Development**         | 6-12 months  | 15,000+       | 60-70%       | 2,000+ hours    |
-| **GenAI Assisted (ChatGPT/Claude)** | 3-6 months   | 12,000+       | 75-85%       | 1,200+ hours    |
-| **🚀 Kiro AI Agent**                | **5 days**   | **8,500**     | **98%**      | **35 hours**    |
+| Approach                            | Timeline    | Lines of Code | Success Rate | Developer Hours |
+| ----------------------------------- | ----------- | ------------- | ------------ | --------------- |
+| **Traditional Development**         | 6-12 months | 15,000+       | 60-70%       | 2,000+ hours    |
+| **GenAI Assisted (ChatGPT/Claude)** | 3-6 months  | 12,000+       | 75-85%       | 1,200+ hours    |
+| **🚀 Kiro AI Agent**                | **5 days**  | **8,500**     | **98%**      | **35 hours**    |
 
 ### 🎯 **Kiro Development Achievements**
 
@@ -180,37 +180,124 @@ npm run deploy           # Deploy updates
 
 ## 🤖 AI Models & Architecture
 
-### 🎬 **Video Generation (Dual-Model Redundancy)**
+### �️* **High-Level System Architecture**
 
-- **Luma AI Ray v2** (Primary) - Advanced cinematic video generation
-- **Amazon Bedrock Nova Reel** (Fallback) - Reliable AWS-native backup
-- **Automatic failover** ensures 100% uptime
-
-### 🧠 **Content Intelligence**
-
-- **Claude 3.5 Sonnet** - Script generation, SEO optimization, trend analysis
-- **Multi-source trend detection** - Google Trends, news APIs, social media
-
-### 🎙️ **Audio & Voice**
-
-- **Amazon Polly Neural Voices** - Professional narration (Amy, Matthew, Joanna)
-- **SSML timing control** - Perfect audio-video synchronization
-- **FFmpeg processing** - High-quality audio-video merging
-
-### 🏗️ **System Flow**
-
+```mermaid
+graph TB
+    subgraph "🔍 Input Sources"
+        GT[Google Trends API]
+        NEWS[News APIs]
+        SOCIAL[Social Media APIs]
+    end
+    
+    subgraph "🧠 AI Processing Layer"
+        TD[Trend Detector<br/>Lambda]
+        CA[Content Analyzer<br/>Claude 3.5 Sonnet]
+        VG[Video Generator<br/>Luma Ray v2 + Nova Reel]
+        AG[Audio Generator<br/>Polly Neural]
+    end
+    
+    subgraph "🔧 Processing Pipeline"
+        VP[Video Processor<br/>FFmpeg Merge]
+        YU[YouTube Uploader<br/>API v3]
+        SEO[SEO Optimizer<br/>Claude Enhancement]
+    end
+    
+    subgraph "☁️ AWS Infrastructure"
+        S3[(S3 Storage<br/>Multi-Region)]
+        DDB[(DynamoDB<br/>Metadata)]
+        EB[EventBridge<br/>Scheduler]
+        SF[Step Functions<br/>Orchestration]
+    end
+    
+    GT --> TD
+    NEWS --> TD
+    SOCIAL --> TD
+    TD --> CA
+    CA --> VG
+    CA --> AG
+    VG --> VP
+    AG --> VP
+    VP --> YU
+    YU --> SEO
+    
+    S3 --> VP
+    DDB --> TD
+    EB --> SF
+    SF --> VG
 ```
-Trend Detection → Content Generation → Video Creation → Audio Synthesis →
-Video Processing → SEO Optimization → YouTube Upload → Analytics
+
+### 📊 **Detailed Data Flow**
+
+#### **Phase 1: Content Discovery (2-3 minutes)**
+1. **Trend Detection** → Google Trends API + News APIs + Social Media
+2. **Content Analysis** → Claude 3.5 Sonnet processes trending topics
+3. **Topic Selection** → Algorithm ranks topics by engagement potential
+4. **Content Planning** → Generate video concept and script outline
+
+#### **Phase 2: AI Content Generation (1-2 minutes)**
+5. **Script Generation** → Claude creates 35-hour optimized narration script
+6. **Video Prompt Creation** → Enhanced prompts for visual generation
+7. **Dual-Model Video Generation**:
+   - **Primary**: Luma AI Ray v2 (us-west-2) → High-quality cinematic output
+   - **Fallback**: Nova Reel (us-east-1) → Automatic failover if needed
+8. **Audio Synthesis** → Polly Neural voices with SSML timing control
+
+#### **Phase 3: Processing & Integration (30-60 seconds)**
+9. **Audio-Video Sync** → FFmpeg merges with millisecond precision
+10. **Quality Optimization** → Format conversion and compression
+11. **Metadata Generation** → SEO-optimized titles, descriptions, tags
+12. **Final Assembly** → Complete video package ready for upload
+
+#### **Phase 4: Publishing & Analytics (10-30 seconds)**
+13. **YouTube Upload** → Automated publishing with API v3
+14. **SEO Enhancement** → Claude optimizes metadata for discovery
+15. **Analytics Tracking** → Performance metrics to DynamoDB
+16. **Scheduling Update** → EventBridge triggers next cycle
+
+### 🎬 **AI Model Specifications**
+
+| Component | Model | Region | Purpose | Fallback |
+|-----------|-------|--------|---------|----------|
+| **Video Generation** | Luma AI Ray v2 | us-west-2 | Primary video creation | Nova Reel |
+| **Video Fallback** | Nova Reel v1 | us-east-1 | Backup video generation | Manual retry |
+| **Content Intelligence** | Claude 3.5 Sonnet | us-east-1 | Script & SEO generation | GPT-4 (future) |
+| **Voice Synthesis** | Polly Neural | us-east-1 | Professional narration | Standard voices |
+| **Trend Analysis** | Custom Algorithm | us-east-1 | Topic discovery | Manual curation |
+
+### 🔄 **Processing Pipeline Details**
+
+#### **Lambda Function Architecture**
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Trend Detector │───▶│ Content Analyzer│───▶│ Video Generator │
+│   (Node.js 20)  │    │   (Node.js 20)  │    │   (Node.js 20)  │
+│   2GB RAM       │    │   1GB RAM       │    │   3GB RAM       │
+│   5min timeout  │    │   3min timeout  │    │   15min timeout │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Video Processor │    │YouTube Uploader │    │  SEO Optimizer  │
+│   (Node.js 20)  │    │   (Node.js 20)  │    │   (Node.js 20)  │
+│   2GB RAM       │    │   1GB RAM       │    │   512MB RAM     │
+│   10min timeout │    │   5min timeout  │    │   2min timeout  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### ☁️ **Infrastructure**
+#### **Storage Architecture**
+- **S3 Multi-Region**: Primary (us-east-1) + Luma (us-west-2)
+- **DynamoDB**: Hot data (7 days) + Cold archive (S3 Glacier)
+- **Temporary Storage**: Lambda /tmp (10GB) for processing
+- **CDN**: CloudFront for global video delivery
 
-- **AWS Lambda** (Node.js 20) - Serverless compute
-- **Amazon S3** - Video and audio storage
-- **DynamoDB** - Metadata and analytics
-- **EventBridge** - Automated scheduling
-- **Step Functions** - Workflow orchestration
+### ⚡ **Performance Optimizations**
+
+- **Concurrent Processing**: Video + Audio generation in parallel
+- **Smart Caching**: Reuse common audio segments and templates
+- **Regional Optimization**: Multi-region deployment for low latency
+- **Auto-scaling**: Lambda concurrency limits prevent cost spikes
+- **Efficient Storage**: Lifecycle policies for cost optimization
 
 ## � Cost &b Performance
 
@@ -253,8 +340,9 @@ Video Processing → SEO Optimization → YouTube Upload → Analytics
 **Total Project Savings**: **$196,500+ in first year alone**
 
 ### ⏱️ **Actual Time Breakdown (35 Hours Total)**
+
 - **System Setup & Lambda Functions**: 8 hours
-- **Audio Integration & Sync**: 6 hours  
+- **Audio Integration & Sync**: 6 hours
 - **Dual-Model Video Generation**: 4 hours
 - **Infrastructure & Node.js 20**: 2 hours
 - **Project Cleanup & Organization**: 4 hours
