@@ -13,10 +13,10 @@
 
 - [🎯 What This Does](#-what-this-does)
 - [✅ What's Working (Production Ready)](#-whats-working-production-ready)
-- [� What'ns Next (Planned Enhancements)](#-whats-next-planned-enhancements)
+- [🔄 What's Next (Planned Enhancements)](#-whats-next-planned-enhancements)
 - [🚀 Quick Start](#-quick-start)
 - [🤖 AI Models & Architecture](#-ai-models--architecture)
-- [� Cvost & Performance](#-cost--performance)
+- [💰 Cost & Performance](#-cost--performance)
 - [📚 Documentation & Support](#-documentation--support)
 
 ## 🎯 What This Does
@@ -71,7 +71,7 @@ A fully automated system that creates and publishes professional YouTube videos 
 - **YouTube Data API v3** - Automated publishing
 - **EventBridge** - Scheduling and orchestration
 
-## � Develsopment Metrics (Built with Kiro)
+## 📈 Development Metrics (Built with Kiro)
 
 ### ⚡ **Development Speed Comparison**
 
@@ -135,7 +135,7 @@ A fully automated system that creates and publishes professional YouTube videos 
 | --------------------------- | --------------------------------- | -------- | ------------------------- |
 | **🏢 Multi-tenant**         | Support multiple YouTube channels | Q3 2025  | Agency and enterprise use |
 | **🎯 A/B Testing**          | Content optimization experiments  | Q3 2025  | Higher engagement rates   |
-| **� Reael-time Processing** | Live content generation           | Q3 2025  | Instant trend response    |
+| **⚡ Real-time Processing** | Live content generation           | Q3 2025  | Instant trend response    |
 | **🤖 Advanced AI**          | GPT-4 integration, custom models  | Q4 2025  | Superior content quality  |
 | **💰 Revenue Optimization** | Monetization and ROI tracking     | Q4 2025  | Business intelligence     |
 | **🎨 Brand Customization**  | Custom styles and brand templates | Q4 2025  | Enterprise branding       |
@@ -180,7 +180,7 @@ npm run deploy           # Deploy updates
 
 ## 🤖 AI Models & Architecture
 
-### �️\* **High-Level System Architecture**
+### 🏗️ **High-Level System Architecture**
 
 ```mermaid
 graph TB
@@ -263,13 +263,13 @@ graph TB
 
 #### **Primary AI Agents**
 
-| Agent | AI Model | Provider | Region | Purpose | Capabilities |
-|-------|----------|----------|--------|---------|-------------|
-| **🎬 Video Creator** | Luma AI Ray v2 | Luma Labs | us-west-2 | Primary video generation | Cinematic 8-second videos, smooth camera movements, complex scenes |
-| **🎥 Video Backup** | Nova Reel v1 | Amazon Bedrock | us-east-1 | Fallback video generation | Reliable AWS-native video creation, automatic failover |
-| **🧠 Content Strategist** | Claude 3.5 Sonnet | Anthropic (Bedrock) | us-east-1 | Script & content generation | Trend analysis, SEO optimization, engaging narratives |
-| **🎙️ Voice Narrator** | Polly Neural | Amazon | us-east-1 | Professional narration | Natural speech, SSML timing, multiple voices |
-| **📈 Trend Analyst** | Custom Algorithm | Internal | us-east-1 | Topic discovery | Multi-source trend detection, ranking, relevance scoring |
+| Agent                     | AI Model          | Provider            | Region    | Purpose                     | Capabilities                                                       |
+| ------------------------- | ----------------- | ------------------- | --------- | --------------------------- | ------------------------------------------------------------------ |
+| **🎬 Video Creator**      | Luma AI Ray v2    | Luma Labs           | us-west-2 | Primary video generation    | Cinematic 8-second videos, smooth camera movements, complex scenes |
+| **🎥 Video Backup**       | Nova Reel v1      | Amazon Bedrock      | us-east-1 | Fallback video generation   | Reliable AWS-native video creation, automatic failover             |
+| **🧠 Content Strategist** | Claude 3.5 Sonnet | Anthropic (Bedrock) | us-east-1 | Script & content generation | Trend analysis, SEO optimization, engaging narratives              |
+| **🎙️ Voice Narrator**     | Polly Neural      | Amazon              | us-east-1 | Professional narration      | Natural speech, SSML timing, multiple voices                       |
+| **📈 Trend Analyst**      | Custom Algorithm  | Internal            | us-east-1 | Topic discovery             | Multi-source trend detection, ranking, relevance scoring           |
 
 #### **AI Agent Interactions**
 
@@ -278,22 +278,22 @@ graph LR
     subgraph "🔍 Discovery Phase"
         TA[Trend Analyst<br/>Custom Algorithm]
     end
-    
+
     subgraph "🧠 Planning Phase"
         CS[Content Strategist<br/>Claude 3.5 Sonnet]
     end
-    
+
     subgraph "🎬 Creation Phase"
         VC[Video Creator<br/>Luma AI Ray v2]
         VB[Video Backup<br/>Nova Reel]
         VN[Voice Narrator<br/>Polly Neural]
     end
-    
+
     subgraph "🔧 Processing Phase"
         VP[Video Processor<br/>FFmpeg + AI]
         YU[YouTube Uploader<br/>API + Claude SEO]
     end
-    
+
     TA -->|Trending Topics| CS
     CS -->|Video Prompts| VC
     CS -->|Backup Prompts| VB
@@ -307,6 +307,7 @@ graph LR
 #### **AI Agent Specifications**
 
 **🎬 Luma AI Ray v2 (Primary Video Agent)**
+
 - **Capabilities**: Advanced cinematic video generation from text prompts
 - **Strengths**: Smooth camera movements, complex visual scenes, high quality
 - **Limitations**: External API dependency, occasional service interruptions
@@ -314,6 +315,7 @@ graph LR
 - **Cost**: ~$0.060 per 8-second video
 
 **🎥 Nova Reel (Backup Video Agent)**
+
 - **Capabilities**: AWS-native video generation with reliable uptime
 - **Strengths**: 100% AWS integration, automatic failover, consistent quality
 - **Limitations**: Less cinematic than Luma Ray, simpler visual effects
@@ -321,6 +323,7 @@ graph LR
 - **Cost**: ~$0.060 per 8-second video (same as Luma)
 
 **🧠 Claude 3.5 Sonnet (Content Intelligence Agent)**
+
 - **Capabilities**: Advanced language understanding, creative writing, SEO optimization
 - **Strengths**: Context awareness, engaging narratives, trend analysis
 - **Limitations**: Text-only output, requires structured prompts
@@ -328,6 +331,7 @@ graph LR
 - **Cost**: ~$0.005 per video script generation
 
 **🎙️ Amazon Polly Neural (Voice Agent)**
+
 - **Capabilities**: Natural-sounding speech synthesis with SSML control
 - **Strengths**: Multiple voices (Amy, Matthew, Joanna), precise timing
 - **Limitations**: English-only currently, requires SSML for best results
@@ -335,6 +339,7 @@ graph LR
 - **Cost**: ~$0.015 per 8-second audio track
 
 **📈 Trend Analysis Agent (Custom)**
+
 - **Capabilities**: Multi-source trend detection and ranking
 - **Strengths**: Real-time data, relevance scoring, topic diversification
 - **Limitations**: Dependent on external APIs (Google Trends, News)
@@ -381,13 +386,14 @@ graph LR
 
 #### **EventBridge Schedules (Currently Running)**
 
-| Schedule Name | Status | Frequency | Topic | Last Run | Next Run |
-|---------------|--------|-----------|-------|----------|----------|
-| **youtube-automation-daily-tech** | ✅ ENABLED | Every 24 hours | Technology Trends 2025 | Active | Automated |
-| **youtube-automation-daily-finance** | ✅ ENABLED | Every 24 hours | Finance & Investing | Active | Automated |
-| **youtube-automation-daily-travel** | ✅ ENABLED | Every 24 hours | Travel & Tourism | Active | Automated |
+| Schedule Name                        | Status     | Frequency      | Topic                  | Last Run | Next Run  |
+| ------------------------------------ | ---------- | -------------- | ---------------------- | -------- | --------- |
+| **youtube-automation-daily-tech**    | ✅ ENABLED | Every 24 hours | Technology Trends 2025 | Active   | Automated |
+| **youtube-automation-daily-finance** | ✅ ENABLED | Every 24 hours | Finance & Investing    | Active   | Automated |
+| **youtube-automation-daily-travel**  | ✅ ENABLED | Every 24 hours | Travel & Tourism       | Active   | Automated |
 
 #### **Automation Configuration**
+
 - **Total Active Schedules**: 3
 - **Daily Video Production**: 3 videos per day
 - **Monthly Output**: ~90 videos
@@ -397,6 +403,7 @@ graph LR
 - **Annual Cost**: $87.60
 
 #### **Schedule Details**
+
 ```json
 {
   "topic": "Technology-Trends-2025",
@@ -413,9 +420,9 @@ graph LR
 
 **🎯 Result**: Fully automated daily video generation and YouTube publishing across 3 content categories with zero manual intervention.
 
-## � Cost &b Performance
+## 💰 Cost & Performance
 
-### � **eProduction Costs**
+### 💰 **Production Costs**
 
 | Service                                           | Cost per Video | Percentage |
 | ------------------------------------------------- | -------------- | ---------- |
@@ -464,9 +471,9 @@ graph LR
 - **Testing & Debugging**: 5 hours
 - **Documentation & README**: 3 hours
 
-## � Doctumentation & Support
+## 📚 Documentation & Support
 
-### � **Key Docurmentation**
+### 📚 **Key Documentation**
 
 - **[📊 System Status](docs/STATUS.md)** - Complete system health and metrics
 - **[🎵 Audio Integration](docs/AUDIO_INTEGRATION.md)** - Audio implementation guide
@@ -474,7 +481,7 @@ graph LR
 - **[🔧 Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[🏗️ Architecture](docs/ARCHITECTURE.md)** - System design details
 
-### �️ **Dev elopment**
+### ⚙️ **Development**
 
 ```bash
 # Development commands
