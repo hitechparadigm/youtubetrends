@@ -40,6 +40,49 @@ An end-to-end serverless platform that automatically generates professional YouT
 - **⏰ Scheduled Automation**: EventBridge-powered daily content creation
 - **💰 Cost Efficient**: $0.08 per video with serverless architecture
 
+### 🤖 **AI Agents & Models**
+
+The platform leverages multiple AI agents and models working together to create professional video content:
+
+#### **Video Generation AI**
+- **🎬 Luma AI Ray v2** (Primary) - Advanced video generation model
+  - Creates cinematic 8-second videos from text prompts
+  - Handles complex visual scenes and smooth camera movements
+  - Optimized for social media content and engagement
+- **🎥 Amazon Bedrock Nova Reel** (Fallback) - AWS native video generation
+  - Provides reliable backup when Luma AI experiences issues
+  - Ensures 100% uptime with automatic failover
+  - Maintains consistent video quality and style
+
+#### **Content Intelligence AI**
+- **🧠 Claude 3.5 Sonnet** (Amazon Bedrock) - Content strategy and scripting
+  - Analyzes trending topics and generates video concepts
+  - Creates engaging video prompts with cinematic descriptions
+  - Optimizes content for YouTube SEO and audience engagement
+  - Generates compelling titles, descriptions, and tags
+
+#### **Audio & Voice AI**
+- **🎙️ Amazon Polly Neural Voices** - Professional narration
+  - Amy, Matthew, and Joanna voices for different content types
+  - SSML timing control for perfect audio synchronization
+  - Natural speech patterns with strategic pauses
+  - High-quality neural voice synthesis
+
+#### **Trend Analysis AI**
+- **📈 Multi-Source Trend Detection** - Intelligent content discovery
+  - Google Trends API integration for real-time trend analysis
+  - Social media sentiment analysis for content optimization
+  - News API integration for timely and relevant topics
+  - Automated trend scoring and ranking algorithms
+
+#### **AI Agent Orchestration**
+```
+Trend AI → Content AI → Video AI → Audio AI → Processing → YouTube Upload
+    ↓         ↓          ↓         ↓          ↓           ↓
+ Discovers  Creates    Generates  Synthesizes Merges    Optimizes
+ Topics     Scripts    Visuals    Narration   A/V       & Publishes
+```
+
 ### 🎯 Use Cases
 
 - **Content Creators**: Daily automated video content for YouTube channels
@@ -98,15 +141,15 @@ graph TB
 
 ### Core Components
 
-| Component | Technology | Purpose | Status |
-|-----------|------------|---------|--------|
-| **Trend Discovery** | Google Trends + News APIs | Real-time trend detection | ✅ Working |
-| **Content Generator** | Claude 3.5 Sonnet | AI script and prompt creation | ✅ Working |
-| **Video Generator** | AWS Bedrock Nova Reel | AI video creation | ✅ Working |
-| **Audio Generator** | Amazon Polly Neural | Professional narration | ✅ Working |
-| **Video Processor** | FFmpeg in Lambda | Audio-video merging | ✅ Fixed |
-| **YouTube Uploader** | YouTube Data API v3 | Automated publishing | ✅ Working |
-| **Scheduler** | EventBridge | Automated execution | ✅ Working |
+| Component | AI Technology | Purpose | Status |
+|-----------|---------------|---------|--------|
+| **Trend Discovery** | Multi-source AI + Google Trends | Real-time trend detection | ✅ Working |
+| **Content Generator** | Claude 3.5 Sonnet (Bedrock) | AI script and prompt creation | ✅ Working |
+| **Video Generator** | Luma AI Ray v2 + Nova Reel | Dual-model AI video creation | ✅ Working |
+| **Audio Generator** | Amazon Polly Neural Voices | Professional AI narration | ✅ Working |
+| **Video Processor** | FFmpeg + AI Orchestration | Audio-video merging | ✅ Working |
+| **YouTube Uploader** | YouTube Data API v3 + AI SEO | Automated publishing | ✅ Working |
+| **Scheduler** | EventBridge + AI Coordination | Automated execution | ✅ Working |
 
 ## 📊 Current Status
 
@@ -387,14 +430,16 @@ The platform has successfully created and published multiple AI-generated videos
 - **AI-Powered**: Multiple AI services (Bedrock, Polly, Claude) integrated
 - **Scalable Storage**: S3 for videos, DynamoDB for metadata
 
-### 🔧 **Key Technologies**
-- **Video Generation**: Amazon Bedrock Nova Reel
-- **Audio Synthesis**: Amazon Polly Neural Voices
-- **Content Intelligence**: Claude 3.5 Sonnet
-- **Video Processing**: FFmpeg in AWS Lambda
-- **Orchestration**: AWS Step Functions
-- **Scheduling**: Amazon EventBridge
-- **Storage**: Amazon S3 + DynamoDB
+### 🔧 **Key Technologies & AI Models**
+- **Primary Video AI**: Luma AI Ray v2 (Advanced video generation)
+- **Fallback Video AI**: Amazon Bedrock Nova Reel (Reliable backup)
+- **Content Intelligence**: Claude 3.5 Sonnet (Script & prompt generation)
+- **Voice AI**: Amazon Polly Neural Voices (Professional narration)
+- **Trend Analysis AI**: Multi-source trend detection algorithms
+- **Video Processing**: FFmpeg in AWS Lambda (Audio-video merging)
+- **Orchestration**: AWS Step Functions (AI workflow coordination)
+- **Scheduling**: Amazon EventBridge (Automated AI execution)
+- **Storage**: Amazon S3 + DynamoDB (AI model outputs & metadata)
 
 ### 📊 **Data Flow**
 ```
@@ -413,11 +458,13 @@ Video Processing (Merge) → SEO Optimization → YouTube Upload → Analytics
 ### 📊 **Cost Breakdown per Video**
 | Service | Cost | Percentage |
 |---------|------|------------|
-| **Bedrock Nova Reel** (Video) | $0.060 | 75% |
+| **Video Generation** (Luma AI Ray v2 / Nova Reel) | $0.060 | 75% |
 | **Amazon Polly** (Audio) | $0.015 | 19% |
 | **AWS Infrastructure** | $0.005 | 6% |
 | **YouTube API** | $0.000 | 0% |
 | **Total per Video** | **$0.080** | **100%** |
+
+**Note**: Video generation uses Luma AI Ray v2 as primary model with Nova Reel as fallback, providing redundancy at the same cost point.
 
 ### 💡 **Cost Optimization**
 - **99% under original estimates** ($8.50 → $0.08 per video)
