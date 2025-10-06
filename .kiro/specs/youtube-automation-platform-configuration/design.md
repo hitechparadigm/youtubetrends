@@ -416,11 +416,70 @@ class CircuitBreaker {
 - Performance tracking and metrics
 - Automatic failover and fallback
 
-### Phase 3: Cost Management and Optimization
-- Comprehensive cost tracking across all services
-- Budget enforcement and automatic controls
-- Cost optimization recommendations
-- Predictive cost analysis
+### Phase 3: Simple Cost Controls for Testing
+
+**Simple Environment-Based Model Selection**
+```javascript
+const simpleEnvironmentConfigs = {
+    development: {
+        models: {
+            content: 'claude-3-haiku-20240307', // 12x cheaper than Sonnet
+            audio: 'standard' // 7.5x cheaper than generative
+        },
+        caching: { enabled: true, ttl: 3600 }, // 1 hour cache
+        mockAfterCost: 2.00 // Switch to mocks after $2/day
+    },
+    production: {
+        models: {
+            content: 'claude-3-5-sonnet-20241022', // High quality
+            audio: 'generative' // Best quality
+        },
+        caching: { enabled: false },
+        mockAfterCost: null // No cost limits
+    }
+};
+```
+
+**Simple Cost Tracker**
+```javascript
+class SimpleCostTracker {
+    constructor() {
+        this.dailySpend = 0;
+        this.environment = process.env.ENVIRONMENT || 'production';
+    }
+
+    async trackCost(cost) {
+        this.dailySpend += cost;
+        
+        // Simple check: if development and over $2, suggest using mocks
+        if (this.environment === 'development' && this.dailySpend > 2.00) {
+            console.warn(`Daily testing cost exceeded $2.00 (current: $${this.dailySpend.toFixed(2)}). Consider using mock responses.`);
+        }
+    }
+
+    shouldUseMock() {
+        return this.environment === 'development' && this.dailySpend > 2.00;
+    }
+}
+```
+
+**Simple Model Selection**
+```javascript
+function getModelForEnvironment(service, environment = 'production') {
+    const configs = {
+        development: {
+            content: { provider: 'anthropic', model: 'claude-3-haiku-20240307' },
+            audio: { provider: 'polly', engine: 'standard' }
+        },
+        production: {
+            content: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+            audio: { provider: 'polly', engine: 'generative' }
+        }
+    };
+    
+    return configs[environment]?.[service] || configs.production[service];
+}
+```
 
 ### Phase 4: Advanced Features
 - Prompt template management with A/B testing

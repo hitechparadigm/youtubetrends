@@ -11,6 +11,10 @@
  */
 
 const ConfigurationManager = require('./ConfigurationManager');
+const PromptTemplateManager = require('./PromptTemplateManager');
+const ABTestManager = require('./ABTestManager');
+const VideoGenerationManager = require('./VideoGenerationManager');
+const SimpleCostControls = require('./SimpleCostControls');
 const configSchema = require('./schemas/configuration-schema.json');
 
 /**
@@ -21,6 +25,14 @@ const configSchema = require('./schemas/configuration-schema.json');
 class ConfigurationFactory {
     constructor() {
         this.instances = new Map();
+        this.templateManagers = new Map();
+        this.abTestManagers = new Map();
+        this.videoGenerationManagers = new Map();
+        this.contentGenerationManagers = new Map();
+        this.featureFlagManagers = new Map();
+        this.experimentManagers = new Map();
+        this.metricsCollectors = new Map();
+        this.costControls = new Map();
         this.defaultConfigurations = this.loadDefaultConfigurations();
     }
 
@@ -118,26 +130,201 @@ class ConfigurationFactory {
     }
 
     /**
-     * Get prompt template configuration
+     * Get PromptTemplateManager instance
      * 
-     * @param {string} templateType - Template type ('script', 'title', 'description')
+     * @param {string} environment - Environment name
+     * @param {Object} options - Template manager options
+     * @returns {PromptTemplateManager} Template manager instance
+     */
+    getTemplateManager(environment = null, options = {}) {
+        const env = environment || process.env.ENVIRONMENT || 'production';
+        const key = `${env}-${JSON.stringify(options)}`;
+        
+        if (!this.templateManagers.has(key)) {
+            const configManager = this.getInstance(env);
+            const templateManager = new PromptTemplateManager({
+                environment: env,
+                configManager,
+                ...options
+            });
+            this.templateManagers.set(key, templateManager);
+        }
+        
+        return this.templateManagers.get(key);
+    }
+
+    /**
+     * Get prompt template configuration (legacy method - now uses PromptTemplateManager)
+     * 
+     * @param {string} templateType - Template type ('script', 'title', 'description', 'video_prompt')
      * @param {string} topic - Content topic
      * @param {string} environment - Environment name
      * @returns {Promise<Object>} Template configuration
      */
     async getPromptTemplate(templateType, topic, environment = null) {
-        const config = this.getInstance(environment);
+        const templateManager = this.getTemplateManager(environment);
+        return await templateManager.loadTemplate(templateType, topic);
+    }
+
+    /**
+     * Render prompt template with variables
+     * 
+     * @param {string} templateType - Template type
+     * @param {string} topic - Content topic
+     * @param {Object} variables - Template variables
+     * @param {Object} options - Rendering options
+     * @param {string} environment - Environment name
+     * @returns {Promise<string>} Rendered template
+     */
+    async renderPromptTemplate(templateType, topic, variables = {}, options = {}, environment = null) {
+        const templateManager = this.getTemplateManager(environment);
+        return await templateManager.renderTemplate(templateType, topic, variables, options);
+    }
+
+    /**
+     * Get ABTestManager instance
+     * 
+     * @param {string} environment - Environment name
+     * @param {Object} options - A/B test manager options
+     * @returns {ABTestManager} A/B test manager instance
+     */
+    getABTestManager(environment = null, options = {}) {
+        const env = environment || process.env.ENVIRONMENT || 'production';
+        const key = `${env}-${JSON.stringify(options)}`;
         
-        const templateConfig = await config.get(
-            `prompts.templates.${templateType}.${topic}`,
-            this.defaultConfigurations.prompts.templates[templateType]?.default
-        );
+        if (!this.abTestManagers.has(key)) {
+            const configManager = this.getInstance(env);
+            const abTestManager = new ABTestManager({
+                environment: env,
+                configManager,
+                ...options
+            });
+            this.abTestManagers.set(key, abTestManager);
+        }
         
-        return {
-            template: templateConfig,
-            variables: await config.get(`prompts.variables.${topic}`, {}),
-            version: await config.get('prompts.version', 'v2.1')
-        };
+        return this.abTestManagers.get(key);
+    }
+
+    /**
+     * Get VideoGenerationManager instance
+     * 
+     * @param {string} environment - Environment name
+     * @param {Object} options - Video generation manager options
+     * @returns {VideoGenerationManager} Video generation manager instance
+     */
+    getVideoGenerationManager(environment = null, options = {}) {
+        const env = environment || process.env.ENVIRONMENT || 'production';
+        const key = `${env}-${JSON.stringify(options)}`;
+        
+        if (!this.videoGenerationManagers.has(key)) {
+            const configManager = this.getInstance(env);
+            const promptManager = this.getTemplateManager(env);
+            const videoManager = new VideoGenerationManager({
+                environment: env,
+                configManager,
+                promptManager,
+                ...options
+            });
+            this.videoGenerationManagers.set(key, videoManager);
+        }
+        
+        return this.videoGenerationManagers.get(key);
+    }
+
+    /**
+     * Get ContentGenerationManager instance
+     * 
+     * @param {string} environment - Environment name
+     * @param {Object} options - Content generation manager options
+     * @returns {ContentGenerationManager} Content generation manager instance
+     */
+    getContentGenerationManager(environment = null, options = {}) {
+        const env = environment || process.env.ENVIRONMENT || 'production';
+        const key = `${env}-${JSON.stringify(options)}`;
+        
+        if (!this.contentGenerationManagers.has(key)) {
+            // Lazy load ContentGenerationManager to avoid circular dependencies
+            const ContentGenerationManager = require('./ContentGenerationManager');
+            
+            const configManager = this.getInstance(env);
+            const promptManager = this.getTemplateManager(env);
+            
+            // Debug: Check if ContentGenerationManager is available
+            if (typeof ContentGenerationManager !== 'function') {
+                console.error('ContentGenerationManager is not a function:', typeof ContentGenerationManager);
+                throw new Error(`ContentGenerationManager is not available as a constructor. Type: ${typeof ContentGenerationManager}`);
+            }
+            
+            const contentManager = new ContentGenerationManager({
+                environment: env,
+                configManager,
+                promptManager,
+                ...options
+            });
+            this.contentGenerationManagers.set(key, contentManager);
+        }
+        
+        return this.contentGenerationManagers.get(key);
+    }
+
+    /**
+     * Get FeatureFlagManager instance
+     * 
+     * @param {string} environment - Environment name
+     * @param {Object} options - Feature flag manager options
+     * @returns {FeatureFlagManager} Feature flag manager instance
+     */
+    getFeatureFlagManager(environment = null, options = {}) {
+        const env = environment || process.env.ENVIRONMENT || 'production';
+        const key = `${env}-${JSON.stringify(options)}`;
+        
+        if (!this.featureFlagManagers.has(key)) {
+            // Lazy load FeatureFlagManager to avoid circular dependencies
+            const FeatureFlagManager = require('./FeatureFlagManager');
+            
+            const configManager = this.getInstance(env);
+            
+            const flagManager = new FeatureFlagManager({
+                environment: env,
+                configManager,
+                ...options
+            });
+            this.featureFlagManagers.set(key, flagManager);
+        }
+        
+        return this.featureFlagManagers.get(key);
+    }
+
+    /**
+     * Get SimpleCostControls instance
+     * 
+     * @param {string} environment - Environment name
+     * @param {Object} options - Cost controls options
+     * @returns {SimpleCostControls} Cost controls instance
+     */
+    getCostControls(environment = null, options = {}) {
+        const env = environment || process.env.ENVIRONMENT || 'production';
+        const key = `${env}-${JSON.stringify(options)}`;
+        
+        if (!this.costControls.has(key)) {
+            const configManager = this.getInstance(env);
+            const costControls = new SimpleCostControls(configManager);
+            this.costControls.set(key, costControls);
+        }
+        
+        return this.costControls.get(key);
+    }
+
+    /**
+     * Get environment-optimized model configuration
+     * 
+     * @param {string} service - Service type ('content', 'video', 'audio')
+     * @param {string} environment - Environment name
+     * @returns {Promise<Object>} Optimized model configuration
+     */
+    async getOptimizedModelConfig(service, environment = null) {
+        const costControls = this.getCostControls(environment);
+        return await costControls.getModelConfig(service);
     }
 
     /**
@@ -359,6 +546,14 @@ class ConfigurationFactory {
      */
     clearInstances() {
         this.instances.clear();
+        this.templateManagers.clear();
+        this.abTestManagers.clear();
+        this.videoGenerationManagers.clear();
+        this.contentGenerationManagers.clear();
+        this.featureFlagManagers.clear();
+        this.experimentManagers.clear();
+        this.metricsCollectors.clear();
+        this.costControls.clear();
     }
 }
 

@@ -114,7 +114,19 @@ This specification outlines the requirements for implementing a comprehensive co
 4. WHEN optimizing performance THEN the system SHALL provide recommendations for model selection and configuration tuning
 5. WHEN scaling operations THEN the system SHALL support auto-scaling and load balancing across multiple AI providers
 
-### Requirement 10: Integration and Backward Compatibility
+### Requirement 10: Simple Cost Controls for Testing
+
+**User Story:** As a developer, I want simple cost controls during testing so that I can prevent unexpected AWS charges like the $172 bill while maintaining full functionality in production.
+
+#### Acceptance Criteria
+
+1. WHEN environment is development THEN the system SHALL use Claude Haiku instead of Sonnet (12x cheaper) and Standard Polly instead of Generative (7.5x cheaper)
+2. WHEN testing repeatedly THEN the system SHALL cache responses aggressively to avoid redundant API calls
+3. WHEN daily testing costs exceed $2 THEN the system SHALL switch to mock responses automatically
+4. WHEN environment is production THEN the system SHALL use high-quality models without cost restrictions
+5. WHEN switching environments THEN the system SHALL load appropriate model configurations automatically
+
+### Requirement 11: Integration and Backward Compatibility
 
 **User Story:** As a developer, I want seamless integration with existing systems so that the new configuration management doesn't break current functionality while providing enhanced capabilities.
 

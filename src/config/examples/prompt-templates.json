@@ -1,0 +1,259 @@
+{
+  "script": {
+    "investing": {
+      "template": "Create a {duration}-second video about {topic}. Focus on {investment_type} strategies for {audience}. Explain {key_concepts} and provide {advice_type} advice. Include {risk_warning} and emphasize {call_to_action}.",
+      "variables": {
+        "duration": 8,
+        "investment_type": "ETF",
+        "audience": "beginners",
+        "key_concepts": ["diversification", "expense ratios", "long-term growth"],
+        "advice_type": "practical",
+        "risk_warning": "investment risks",
+        "call_to_action": "start your investment journey"
+      },
+      "variants": {
+        "control": "Create a {duration}-second video about {topic}. Focus on {investment_type} strategies for {audience}.",
+        "variant_a": "Discover {topic} in this {duration}-second guide! Learn {investment_type} strategies perfect for {audience}.",
+        "variant_b": "Master {topic} in just {duration} seconds! Essential {investment_type} knowledge for {audience}."
+      }
+    },
+    "education": {
+      "template": "Create an educational {duration}-second video about {topic}. Explain {concepts} in simple terms for {audience}. Include {examples} and provide {learning_outcomes}. Make it {tone} and {engaging_elements}.",
+      "variables": {
+        "duration": 8,
+        "concepts": ["key principles", "practical applications"],
+        "audience": "students",
+        "examples": "real-world examples",
+        "learning_outcomes": "actionable takeaways",
+        "tone": "friendly",
+        "engaging_elements": "visual demonstrations"
+      },
+      "variants": {
+        "control": "Create an educational {duration}-second video about {topic}. Explain {concepts} for {audience}.",
+        "variant_a": "Learn {topic} in {duration} seconds! Simple {concepts} explained for {audience}.",
+        "variant_b": "Quick {topic} lesson! Master {concepts} in just {duration} seconds - perfect for {audience}."
+      }
+    },
+    "tourism": {
+      "template": "Create a captivating {duration}-second video showcasing {topic}. Highlight {attractions} and {unique_features}. Include {travel_tips} for {traveler_type}. Emphasize {cultural_aspects} and {practical_info}.",
+      "variables": {
+        "duration": 8,
+        "attractions": ["must-see locations", "hidden gems"],
+        "unique_features": "distinctive characteristics",
+        "travel_tips": "insider advice",
+        "traveler_type": "adventurous travelers",
+        "cultural_aspects": "local culture",
+        "practical_info": "travel logistics"
+      },
+      "variants": {
+        "control": "Create a {duration}-second video showcasing {topic}. Highlight {attractions} for {traveler_type}.",
+        "variant_a": "Explore {topic} in {duration} seconds! Discover {attractions} perfect for {traveler_type}.",
+        "variant_b": "Amazing {topic} adventure! See {attractions} in this {duration}-second journey for {traveler_type}."
+      }
+    },
+    "technology": {
+      "template": "Create a {duration}-second video about {topic}. Explain {tech_concepts} and their {applications}. Show {benefits} for {target_users}. Include {future_implications} and {practical_examples}.",
+      "variables": {
+        "duration": 8,
+        "tech_concepts": ["core technologies", "innovations"],
+        "applications": "real-world uses",
+        "benefits": "key advantages",
+        "target_users": "tech enthusiasts",
+        "future_implications": "upcoming trends",
+        "practical_examples": "hands-on demonstrations"
+      },
+      "variants": {
+        "control": "Create a {duration}-second video about {topic}. Explain {tech_concepts} for {target_users}.",
+        "variant_a": "Discover {topic} in {duration} seconds! Learn {tech_concepts} that {target_users} love.",
+        "variant_b": "Tech breakthrough: {topic}! Master {tech_concepts} in {duration} seconds - ideal for {target_users}."
+      }
+    }
+  },
+  "title": {
+    "investing": {
+      "template": "{number} {investment_type} Strategies Every {audience} Should Know in {year}",
+      "variables": {
+        "number": 5,
+        "investment_type": "ETF",
+        "audience": "Beginner",
+        "year": 2025
+      },
+      "variants": {
+        "control": "{number} {investment_type} Strategies Every {audience} Should Know",
+        "variant_a": "Top {number} {investment_type} Tips for {audience} Investors",
+        "variant_b": "Essential {investment_type} Guide: {number} Must-Know Strategies for {audience}"
+      }
+    },
+    "education": {
+      "template": "{number} Essential {topic} Concepts Every {audience} Must Understand",
+      "variables": {
+        "number": 5,
+        "audience": "Student"
+      },
+      "variants": {
+        "control": "{number} Essential {topic} Concepts for {audience}",
+        "variant_a": "Master {topic}: {number} Key Concepts for {audience}",
+        "variant_b": "{topic} Made Simple: {number} Core Ideas Every {audience} Needs"
+      }
+    },
+    "tourism": {
+      "template": "{number} Hidden Gems in {destination} You Must Visit in {year}",
+      "variables": {
+        "number": 5,
+        "destination": "{topic}",
+        "year": 2025
+      },
+      "variants": {
+        "control": "{number} Amazing Places to Visit in {destination}",
+        "variant_a": "Discover {destination}: {number} Incredible Destinations",
+        "variant_b": "{destination} Travel Guide: {number} Must-See Locations"
+      }
+    },
+    "technology": {
+      "template": "{number} {tech_category} Innovations Changing {industry} in {year}",
+      "variables": {
+        "number": 5,
+        "tech_category": "AI",
+        "industry": "Business",
+        "year": 2025
+      },
+      "variants": {
+        "control": "{number} {tech_category} Innovations in {industry}",
+        "variant_a": "Revolutionary {tech_category}: {number} Game-Changing {industry} Tools",
+        "variant_b": "{tech_category} Breakthrough: {number} {industry} Innovations You Need to Know"
+      }
+    }
+  },
+  "description": {
+    "investing": {
+      "template": "Learn essential {investment_type} investing strategies in this comprehensive guide. Perfect for {audience} looking to {goals}. We cover {topics} and provide actionable advice to help you {outcomes}. {disclaimer}",
+      "variables": {
+        "investment_type": "ETF",
+        "audience": "beginners",
+        "goals": "build wealth",
+        "topics": ["portfolio diversification", "expense ratios", "long-term strategies"],
+        "outcomes": "make informed investment decisions",
+        "disclaimer": "Remember: all investments carry risk."
+      },
+      "variants": {
+        "control": "Learn {investment_type} investing strategies for {audience}. Covers {topics} with actionable advice.",
+        "variant_a": "Master {investment_type} investing! Complete guide for {audience} covering {topics}.",
+        "variant_b": "{investment_type} investing made simple! Essential strategies for {audience} to {goals}."
+      }
+    },
+    "education": {
+      "template": "Explore {topic} in this educational video designed for {audience}. Learn {concepts} through {teaching_method} and discover {applications}. Perfect for {learning_goals} and {skill_development}.",
+      "variables": {
+        "audience": "students",
+        "concepts": ["fundamental principles", "practical applications"],
+        "teaching_method": "clear explanations and examples",
+        "applications": "real-world uses",
+        "learning_goals": "academic success",
+        "skill_development": "critical thinking"
+      },
+      "variants": {
+        "control": "Learn {topic} through {teaching_method}. Perfect for {audience} seeking {learning_goals}.",
+        "variant_a": "Master {topic}! Comprehensive guide for {audience} with {teaching_method}.",
+        "variant_b": "{topic} explained simply! Essential knowledge for {audience} using {teaching_method}."
+      }
+    },
+    "tourism": {
+      "template": "Discover the beauty of {destination} in this travel guide. Explore {attractions}, learn about {culture}, and get {travel_tips}. Perfect for {traveler_type} planning their {trip_type}. {call_to_action}",
+      "variables": {
+        "destination": "{topic}",
+        "attractions": ["stunning locations", "hidden gems"],
+        "culture": "local traditions",
+        "travel_tips": "insider advice",
+        "traveler_type": "adventure seekers",
+        "trip_type": "next adventure",
+        "call_to_action": "Start planning your journey today!"
+      },
+      "variants": {
+        "control": "Explore {destination} with this travel guide. Discover {attractions} and get {travel_tips}.",
+        "variant_a": "Amazing {destination} adventure! Your complete guide to {attractions} and {culture}.",
+        "variant_b": "{destination} travel secrets revealed! Discover {attractions} perfect for {traveler_type}."
+      }
+    },
+    "technology": {
+      "template": "Dive into {topic} and discover how {technology} is transforming {industry}. Learn about {features}, understand {benefits}, and explore {use_cases}. Essential knowledge for {target_audience} in {year}.",
+      "variables": {
+        "technology": "cutting-edge innovations",
+        "industry": "modern business",
+        "features": ["key capabilities", "advanced functions"],
+        "benefits": "competitive advantages",
+        "use_cases": "practical applications",
+        "target_audience": "tech professionals",
+        "year": 2025
+      },
+      "variants": {
+        "control": "Learn about {topic} and how {technology} impacts {industry}. Covers {features} and {benefits}.",
+        "variant_a": "Revolutionary {topic}! Discover how {technology} is changing {industry} forever.",
+        "variant_b": "{topic} breakthrough! Essential {technology} knowledge for {target_audience} in {year}."
+      }
+    }
+  },
+  "video_prompt": {
+    "investing": {
+      "template": "Create a professional {duration}-second video about {topic} with clean, modern visuals. Show {visual_elements} and use {color_scheme} colors. Include {graphics} and maintain a {tone} atmosphere throughout.",
+      "variables": {
+        "duration": 8,
+        "visual_elements": ["charts", "graphs", "financial symbols"],
+        "color_scheme": "blue and green",
+        "graphics": "professional financial graphics",
+        "tone": "trustworthy and authoritative"
+      },
+      "variants": {
+        "control": "Professional {duration}-second video about {topic} with {visual_elements} and {color_scheme} colors.",
+        "variant_a": "Dynamic {duration}-second {topic} video featuring {visual_elements} with modern {color_scheme} design.",
+        "variant_b": "Engaging {duration}-second {topic} presentation with animated {visual_elements} and {color_scheme} theme."
+      }
+    },
+    "education": {
+      "template": "Create an educational {duration}-second video about {topic} with clear, engaging visuals. Use {visual_style} and include {educational_elements}. Maintain {pacing} and ensure {accessibility}.",
+      "variables": {
+        "duration": 8,
+        "visual_style": "clean, minimalist design",
+        "educational_elements": ["diagrams", "illustrations", "text overlays"],
+        "pacing": "steady, easy-to-follow rhythm",
+        "accessibility": "clear, readable text"
+      },
+      "variants": {
+        "control": "Educational {duration}-second video about {topic} with {visual_style} and {educational_elements}.",
+        "variant_a": "Interactive {duration}-second {topic} lesson with {visual_style} and engaging {educational_elements}.",
+        "variant_b": "Comprehensive {duration}-second {topic} guide featuring {visual_style} and clear {educational_elements}."
+      }
+    },
+    "tourism": {
+      "template": "Create a captivating {duration}-second video showcasing {topic} with stunning {cinematography}. Feature {scenic_elements} and use {lighting} lighting. Include {movement} and capture the {atmosphere}.",
+      "variables": {
+        "duration": 8,
+        "cinematography": "aerial and ground shots",
+        "scenic_elements": ["landscapes", "landmarks", "cultural sites"],
+        "lighting": "golden hour",
+        "movement": "smooth camera transitions",
+        "atmosphere": "adventurous and inspiring mood"
+      },
+      "variants": {
+        "control": "Captivating {duration}-second video of {topic} with {cinematography} and {scenic_elements}.",
+        "variant_a": "Breathtaking {duration}-second {topic} journey featuring {cinematography} and {lighting} lighting.",
+        "variant_b": "Epic {duration}-second {topic} adventure with stunning {cinematography} and {scenic_elements}."
+      }
+    },
+    "technology": {
+      "template": "Create a modern {duration}-second video about {topic} with sleek {tech_aesthetics}. Show {tech_visuals} and use {color_palette} colors. Include {animations} and maintain a {tech_vibe} throughout.",
+      "variables": {
+        "duration": 8,
+        "tech_aesthetics": "futuristic design elements",
+        "tech_visuals": ["code snippets", "digital interfaces", "tech devices"],
+        "color_palette": "blue and purple gradient",
+        "animations": "smooth transitions and effects",
+        "tech_vibe": "innovative and cutting-edge feel"
+      },
+      "variants": {
+        "control": "Modern {duration}-second video about {topic} with {tech_aesthetics} and {tech_visuals}.",
+        "variant_a": "Futuristic {duration}-second {topic} showcase with {tech_aesthetics} and {color_palette} design.",
+        "variant_b": "High-tech {duration}-second {topic} presentation featuring {tech_aesthetics} and dynamic {animations}."
+      }
+    }
+  }
+}
