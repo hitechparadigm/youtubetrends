@@ -37,6 +37,7 @@
 - [ ] 2.1 Remove excessive ZIP deployment artifacts
   - Delete all ZIP files in lambda directories except most recent working versions
 
+
   - Remove temporary deployment files and backup ZIP files
   - _Requirements: 1.1, 4.3_
 
@@ -51,6 +52,8 @@
 
 - [ ] 2.3 Relocate test JSON files to proper test directories
   - Move root-level JSON test files to tests/fixtures/ directory
+
+
   - Update any references to these files in test scripts
   - _Requirements: 1.2, 4.2_
 
