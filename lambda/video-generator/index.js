@@ -11,7 +11,7 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'us-ea
 
 exports.handler = async (event, context) => {
     const startTime = Date.now();
-    
+
     console.log('Video Generator Lambda started', {
         requestId: context.awsRequestId,
         topic: event.topic,
@@ -22,7 +22,7 @@ exports.handler = async (event, context) => {
     try {
         // Generate video using Amazon Bedrock Nova Reel
         const videoResult = await generateVideo(event);
-        
+
         // Generate audio narration if requested
         let audioResult = null;
         if (event.videoConfig?.includeAudio) {
@@ -31,7 +31,7 @@ exports.handler = async (event, context) => {
 
         // Calculate costs
         const generationCost = calculateGenerationCost(
-            event.videoConfig?.durationSeconds || 6, 
+            event.videoConfig?.durationSeconds || 6,
             event.videoConfig?.includeAudio || false
         );
 
@@ -46,10 +46,10 @@ exports.handler = async (event, context) => {
         // CRITICAL AUDIO FIX: Merge audio and video if both exist
         let processedVideoS3Key = videoResult.s3Key; // Default to original video
         let hasAudio = false;
-        
+
         if (audioResult && audioResult.s3Key) {
             console.log('🔧 CRITICAL FIX: Merging audio and video...');
-            
+
             try {
                 // Call video processor to merge audio and video
                 const videoProcessorEvent = {
@@ -67,14 +67,14 @@ exports.handler = async (event, context) => {
                         trendId: event.trendId || 'unknown'
                     }
                 };
-                
+
                 const processorResult = await lambdaClient.send(new InvokeCommand({
                     FunctionName: 'youtube-automation-video-processor',
                     Payload: JSON.stringify(videoProcessorEvent)
                 }));
-                
+
                 const processorResponse = JSON.parse(new TextDecoder().decode(processorResult.Payload));
-                
+
                 if (processorResponse.success && processorResponse.processedVideoS3Key) {
                     processedVideoS3Key = processorResponse.processedVideoS3Key;
                     hasAudio = processorResponse.metadata?.hasAudio || true;
@@ -86,7 +86,7 @@ exports.handler = async (event, context) => {
                 } else {
                     console.error('⚠️ Audio merging failed, using original video:', processorResponse.error);
                 }
-                
+
             } catch (mergeError) {
                 console.error('⚠️ Audio merging error, using original video:', mergeError.message);
             }
@@ -132,19 +132,19 @@ exports.handler = async (event, context) => {
 };
 
 async function generateVideo(event) {
-    console.log('Starting video generation with Bedrock Nova Reel');
-    
+    console.log('Starting video generation with Luma AI Ray v2');
+
     // Enhanced script prompt with topic-specific instructions
     const enhancedPrompt = enhancePromptForTopic(event.scriptPrompt || 'Create a professional video', event.topic);
-    
+
     // Mock mode for testing
     if (process.env.MOCK_VIDEO_GENERATION === 'true') {
         console.log('Mock mode: Simulating video generation');
         const s3OutputKey = `videos/${event.topic}/${event.trendId}_${Date.now()}.mp4`;
-        
+
         // Simulate processing time
         await new Promise(resolve => setTimeout(resolve, 2000));
-        
+
         return {
             s3Key: s3OutputKey,
             jobId: `mock-job-${Date.now()}`,
@@ -156,7 +156,7 @@ async function generateVideo(event) {
 
     try {
         const s3OutputKey = `videos/${event.topic}/${event.trendId}_${Date.now()}.mp4`;
-        
+
         // Validate required environment variables
         if (!process.env.VIDEO_BUCKET) {
             throw new Error('VIDEO_BUCKET environment variable is required');
@@ -166,13 +166,13 @@ async function generateVideo(event) {
         let startResponse;
         let jobId;
         let usedModel = 'luma.ray-v2:0';
-        
+
         try {
             console.log('Attempting video generation with Luma AI Ray v2...');
-            
+
             // Use Luma Ray v2 client (us-west-2)
             const lumaClient = new BedrockRuntimeClient({ region: 'us-west-2' });
-            
+
             startResponse = await lumaClient.send(new StartAsyncInvokeCommand({
                 modelId: 'luma.ray-v2:0',
                 modelInput: {
@@ -184,49 +184,55 @@ async function generateVideo(event) {
                     }
                 }
             }));
-            
+
             jobId = startResponse.invocationArn;
             console.log('✅ Luma AI Ray v2 job started successfully', { jobId, s3OutputKey });
-            
+
         } catch (lumaError) {
-            console.log('❌ Luma AI Ray v2 failed, trying Nova Reel fallback...', lumaError.message);
-            
-            // Fallback to Nova Reel
-            usedModel = 'amazon.nova-reel-v1:0';
-            startResponse = await bedrockClient.send(new StartAsyncInvokeCommand({
-                modelId: 'amazon.nova-reel-v1:0',
-                modelInput: {
-                    taskType: 'TEXT_VIDEO',
-                    textToVideoParams: {
-                        text: enhancedPrompt
-                    },
-                    videoGenerationConfig: {
-                        fps: event.videoConfig?.fps || 24,
-                        durationSeconds: event.videoConfig?.durationSeconds || 6,
-                        dimension: event.videoConfig?.dimension || '1280x720',
-                        seed: Math.floor(Math.random() * 1000000)
-                    }
-                },
-                outputDataConfig: {
-                    s3OutputDataConfig: {
-                        s3Uri: `s3://${process.env.VIDEO_BUCKET}/${s3OutputKey}`
-                    }
+            console.log('❌ Luma AI Ray v2 failed:', lumaError.message);
+
+            // Check if it's a rate limit error
+            if (lumaError.message.includes('Too many requests')) {
+                console.log('⏳ Luma Ray rate limited - waiting before retry...');
+                // Wait 30 seconds and retry once
+                await new Promise(resolve => setTimeout(resolve, 30000));
+
+                try {
+                    console.log('🔄 Retrying Luma Ray after rate limit wait...');
+                    const lumaClient = new BedrockRuntimeClient({ region: 'us-west-2' });
+                    
+                    startResponse = await lumaClient.send(new StartAsyncInvokeCommand({
+                        modelId: 'luma.ray-v2:0',
+                        modelInput: {
+                            prompt: enhancedPrompt
+                        },
+                        outputDataConfig: {
+                            s3OutputDataConfig: {
+                                s3Uri: `s3://youtube-automation-luma-786673323159/${s3OutputKey}`
+                            }
+                        }
+                    }));
+
+                    jobId = startResponse.invocationArn;
+                    console.log('✅ Luma AI Ray v2 retry successful', { jobId, s3OutputKey });
+
+                } catch (retryError) {
+                    console.log('❌ Luma Ray retry failed:', retryError.message);
+                    throw new Error(`Luma Ray failed after retry: ${retryError.message}`);
                 }
-            }));
-            
-            jobId = startResponse.invocationArn;
-            console.log('✅ Nova Reel fallback job started', { jobId, s3OutputKey });
+            } else {
+                console.log('❌ Luma Ray failed with error:', lumaError.message);
+                throw new Error(`Luma Ray failed: ${lumaError.message}`);
+            }
         }
 
         // Poll for completion (with timeout)
         const maxWaitTime = 30 * 60 * 1000; // 30 minutes
         const pollInterval = 30 * 1000; // 30 seconds
         const startTime = Date.now();
-        
-        // Use the correct client for polling based on which model was used
-        const pollClient = usedModel.startsWith('luma') ? 
-            new BedrockRuntimeClient({ region: 'us-west-2' }) : 
-            bedrockClient;
+
+        // Use Luma Ray client for polling (us-west-2)
+        const pollClient = new BedrockRuntimeClient({ region: 'us-west-2' });
 
         while (Date.now() - startTime < maxWaitTime) {
             const statusResponse = await pollClient.send(new GetAsyncInvokeCommand({
@@ -237,13 +243,11 @@ async function generateVideo(event) {
 
             if (statusResponse.status === 'Completed') {
                 console.log('Video generation completed successfully');
-                
-                // Get file metadata from S3
-                const bucketName = usedModel.startsWith('luma') ? 
-                    'youtube-automation-luma-786673323159' : 
-                    process.env.VIDEO_BUCKET;
+
+                // Get file metadata from S3 (always Luma bucket)
+                const bucketName = 'youtube-automation-luma-786673323159';
                 const metadata = await getS3FileMetadata(s3OutputKey, bucketName);
-                
+
                 return {
                     s3Key: s3OutputKey,
                     jobId,
@@ -265,7 +269,7 @@ async function generateVideo(event) {
 
     } catch (error) {
         console.error('Bedrock video generation failed', error);
-        
+
         // Provide more specific error messages
         if (error instanceof Error) {
             if (error.message.includes('ValidationException')) {
@@ -276,22 +280,22 @@ async function generateVideo(event) {
                 throw new Error('Rate limit exceeded for Bedrock Nova Reel');
             }
         }
-        
+
         throw error;
     }
 }
 
 async function generateAudio(event) {
     console.log('Starting audio generation with Amazon Polly');
-    
+
     // Mock mode for testing
     if (process.env.MOCK_VIDEO_GENERATION === 'true') {
         console.log('Mock mode: Simulating audio generation');
         const s3OutputKey = `audio/${event.topic}/${event.trendId}_${Date.now()}.mp3`;
-        
+
         // Simulate processing time
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         return {
             s3Key: s3OutputKey,
             jobId: `mock-audio-job-${Date.now()}`
@@ -307,12 +311,15 @@ async function generateAudio(event) {
 
         // Get topic-specific voice settings
         const voiceSettings = getTopicVoiceSettings(event.topic, audioConfig);
-        
+
         const s3OutputKey = `audio/${event.topic}/${event.trendId}_${Date.now()}.mp3`;
+
+        // Generate proper narration script for the topic
+        const narrationScript = generateNarrationScript(event.topic, event.videoConfig?.durationSeconds || 6);
         
         // Generate SSML for better audio control
-        const ssmlText = generateSSML(event.scriptPrompt || 'Test audio content', voiceSettings);
-        
+        const ssmlText = generateSSML(narrationScript, voiceSettings);
+
         // Validate required environment variables
         if (!process.env.VIDEO_BUCKET) {
             throw new Error('VIDEO_BUCKET environment variable is required');
@@ -323,10 +330,10 @@ async function generateAudio(event) {
             TextType: 'ssml',
             VoiceId: voiceSettings.voiceId,
             OutputFormat: 'mp3',
-            Engine: 'neural',
+            Engine: 'standard', // Use reliable standard engine
             OutputS3BucketName: process.env.VIDEO_BUCKET,
             OutputS3KeyPrefix: `audio/${event.topic}/`,
-            SampleRate: '24000'
+            SampleRate: '24000' // Use high quality sample rate
         }));
 
         console.log('Polly job started', {
@@ -342,7 +349,7 @@ async function generateAudio(event) {
 
     } catch (error) {
         console.error('Polly audio generation failed', error);
-        
+
         // Provide more specific error messages
         if (error instanceof Error) {
             if (error.message.includes('InvalidParameterValue')) {
@@ -353,7 +360,7 @@ async function generateAudio(event) {
                 throw new Error('Rate limit exceeded for Amazon Polly');
             }
         }
-        
+
         throw error;
     }
 }
@@ -363,19 +370,19 @@ function enhancePromptForTopic(basePrompt, topic) {
         investing: `${basePrompt} Focus on creating visually engaging content about financial markets, 
       stock charts, investment portfolios, and economic indicators. Include graphics showing 
       ETF performance, dividend yields, and market trends. Make it professional yet accessible.`,
-      
+
         education: `${basePrompt} Create educational visuals with clear diagrams, study materials, 
       learning environments, and academic success imagery. Include books, digital learning tools, 
       and inspiring educational settings.`,
-      
+
         tourism: `${basePrompt} Showcase beautiful travel destinations, cultural landmarks, 
       local experiences, and adventure activities. Include stunning landscapes, city views, 
       cultural sites, and travel-related imagery.`,
-      
+
         technology: `${basePrompt} Feature cutting-edge technology, digital interfaces, 
       innovation labs, and futuristic concepts. Include gadgets, software interfaces, 
       and tech environments.`,
-      
+
         health: `${basePrompt} Show healthy lifestyle imagery, medical concepts, wellness activities, 
       and health-focused environments. Include fitness, nutrition, and medical imagery.`
     };
@@ -385,26 +392,95 @@ function enhancePromptForTopic(basePrompt, topic) {
 
 function getTopicVoiceSettings(topic, audioConfig) {
     const topicVoices = {
-        investing: { voiceId: 'Matthew', rate: 'medium', pitch: 'medium' },
-        education: { voiceId: 'Joanna', rate: 'medium', pitch: 'medium' },
-        tourism: { voiceId: 'Amy', rate: 'medium', pitch: '+2%' },
-        technology: { voiceId: 'Brian', rate: 'medium', pitch: 'medium' },
-        health: { voiceId: 'Kimberly', rate: 'slow', pitch: 'medium' } // Calm, reassuring voice
+        'etf-investing-2025': { 
+            voiceId: 'Matthew',
+            rate: 'medium',
+            pitch: 'medium',
+            volume: 'medium',
+            emphasis: 'moderate'
+        },
+        'mexico-travel-2025': { 
+            voiceId: 'Amy',
+            rate: 'medium',
+            pitch: '+2%',
+            volume: 'medium',
+            emphasis: 'moderate'
+        },
+        investing: { 
+            voiceId: 'Matthew', 
+            rate: '100%', 
+            pitch: 'medium',
+            volume: 'loud',
+            emphasis: 'strong'
+        },
+        education: { 
+            voiceId: 'Joanna', 
+            rate: 'medium', 
+            pitch: '+3%',
+            volume: 'loud',
+            emphasis: 'moderate'
+        },
+        tourism: { 
+            voiceId: 'Amy', 
+            rate: '105%', 
+            pitch: '+8%',
+            volume: 'loud',
+            emphasis: 'strong'
+        },
+        technology: { 
+            voiceId: 'Brian', 
+            rate: 'medium', 
+            pitch: '+2%',
+            volume: 'loud',
+            emphasis: 'moderate'
+        },
+        health: { 
+            voiceId: 'Kimberly', 
+            rate: '90%', 
+            pitch: 'medium',
+            volume: 'medium',
+            emphasis: 'moderate'
+        }
     };
 
     return topicVoices[topic?.toLowerCase()] || topicVoices.education;
 }
 
+function generateNarrationScript(topic, durationSeconds) {
+    // Create topic-specific narration scripts that match the video content
+    const scripts = {
+        'ETF-Investing-2025': {
+            short: "ETF investing offers diversified portfolios with low fees.",
+            medium: "ETF investing provides diversified markets with lower costs and flexibility.",
+            long: "ETF investing strategies offer access to global markets with lower fees."
+        },
+        'Mexico-Travel-2025': {
+            short: "Discover Mexico's stunning beaches and ancient ruins.",
+            medium: "Experience Mexico's beautiful beaches, ancient pyramids, and vibrant culture.",
+            long: "Discover Mexico's breathtaking beaches, ancient Mayan pyramids, and colorful colonial cities."
+        },
+        'test': {
+            short: "This is a test video demonstrating our AI-powered video generation system.",
+            medium: "Welcome to our test video showcasing advanced AI video generation capabilities with professional narration.",
+            long: "This comprehensive test demonstrates our cutting-edge AI video generation system, featuring high-quality visuals and professional audio narration for educational content creation."
+        }
+    };
+
+    const topicScripts = scripts[topic] || scripts['test'];
+    
+    // Choose script length based on video duration for precise timing
+    if (durationSeconds <= 5) {
+        return topicScripts.short; // ~8-10 words for 5 seconds
+    } else if (durationSeconds <= 8) {
+        return topicScripts.medium; // ~12-15 words for 8 seconds  
+    } else {
+        return topicScripts.long; // ~18-20 words for longer videos
+    }
+}
+
 function generateSSML(text, voiceSettings) {
-    return `
-    <speak>
-      <prosody rate="${voiceSettings.rate}" pitch="${voiceSettings.pitch}">
-        <break time="1s"/>
-        ${text}
-        <break time="2s"/>
-      </prosody>
-    </speak>
-  `.trim();
+    // Simple SSML with strategic pauses for 8-second timing
+    return `<speak><prosody rate="${voiceSettings.rate}" pitch="${voiceSettings.pitch}"><break time="1s"/>${text}<break time="3s"/></prosody></speak>`;
 }
 
 async function getS3FileMetadata(s3Key, bucketName = null) {
@@ -437,7 +513,7 @@ async function getS3FileMetadata(s3Key, bucketName = null) {
         };
     } catch (error) {
         console.error('Failed to get S3 metadata', { key: s3Key, error });
-        
+
         // Return estimated size if metadata retrieval fails
         return { size: 1024 * 1024 * 5 }; // 5MB estimate
     }
@@ -447,9 +523,9 @@ function calculateGenerationCost(durationSeconds, includeAudio) {
     // Bedrock Nova Reel pricing (approximate)
     const videoCostPerSecond = 0.80 / 60; // $0.80 per minute
     const videoCost = (durationSeconds / 60) * 0.80;
-    
+
     // Polly pricing (approximate)
     const audioCost = includeAudio ? (durationSeconds * 0.000004) : 0; // $4 per 1M characters
-    
+
     return Math.round((videoCost + audioCost) * 100) / 100; // Round to 2 decimal places
 }

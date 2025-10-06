@@ -306,11 +306,23 @@ async function uploadVideoToYouTube(youtubeClient, videoBuffer, metadata, upload
                 }
             },
             media: {
-                body: videoBuffer
+                mimeType: 'video/mp4',
+                body: require('stream').Readable.from([videoBuffer])
             }
         };
         const response = await youtube.videos.insert(uploadParams);
-        const videoId = response.data.id;
+        // Handle different response formats
+        let videoId;
+        if (response.data && response.data.id) {
+            videoId = response.data.id;
+        } else if (response.id) {
+            videoId = response.id;
+        } else if (response.data && response.data.items && response.data.items[0]) {
+            videoId = response.data.items[0].id;
+        } else {
+            console.log('Unexpected response format:', JSON.stringify(response, null, 2));
+            throw new Error('Could not extract video ID from YouTube response');
+        }
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const uploadTime = Date.now() - uploadStartTime;
         console.log('Video uploaded successfully', {
