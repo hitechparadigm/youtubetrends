@@ -1,22 +1,143 @@
-// Video Generator Lambda with Audio Integration Fix
+/**
+ * YouTube Automation Platform - Video Generator Lambda Function
+ * 
+ * This Lambda function is the core component of the video generation pipeline.
+ * It orchestrates the creation of AI-generated videos with synchronized audio
+ * using multiple AWS services and external AI models.
+ * 
+ * @fileoverview Main video generation Lambda that handles:
+ * - Video generation using Luma AI Ray v2 (primary) or Amazon Bedrock Nova Reel (fallback)
+ * - Audio generation using Amazon Polly Neural voices
+ * - Audio-video synchronization and merging
+ * - Cost calculation and performance tracking
+ * - Cross-region failover and error handling
+ * 
+ * @author YouTube Automation Platform Team
+ * @version 1.3.0
+ * @since 2025-01-01
+ * @lastModified 2025-10-06
+ * 
+ * @requires @aws-sdk/client-bedrock-runtime - For AI video generation
+ * @requires @aws-sdk/client-polly - For neural voice synthesis
+ * @requires @aws-sdk/client-s3 - For file storage and retrieval
+ * @requires @aws-sdk/client-lambda - For invoking video processor
+ * 
+ * Environment Variables:
+ * - AWS_REGION: AWS region for service calls (default: us-east-1)
+ * - LUMA_API_ENDPOINT: Luma AI API endpoint for video generation
+ * - VIDEO_BUCKET: S3 bucket for video storage
+ * - AUDIO_BUCKET: S3 bucket for audio storage
+ * 
+ * IAM Permissions Required:
+ * - bedrock:InvokeModel (Nova Reel)
+ * - polly:StartSpeechSynthesisTask
+ * - s3:GetObject, s3:PutObject
+ * - lambda:InvokeFunction (video processor)
+ * 
+ * Input Event Schema:
+ * {
+ *   topic: string,              // Video topic (e.g., "Technology-Trends-2025")
+ *   trendId: string,           // Unique trend identifier
+ *   scriptPrompt: string,      // Content prompt for video generation
+ *   videoConfig: {
+ *     durationSeconds: number, // Video duration (typically 8 seconds)
+ *     includeAudio: boolean,   // Whether to generate audio
+ *     quality: string,         // Video quality setting
+ *     fps: number             // Frames per second
+ *   },
+ *   audioConfig: {
+ *     voice: string,          // Polly voice (Amy, Matthew, Joanna)
+ *     speed: string,          // Speech rate (slow, medium, fast)
+ *     language: string        // Language code (en-US)
+ *   }
+ * }
+ * 
+ * Output Schema:
+ * {
+ *   success: boolean,
+ *   videoS3Key: string,        // Original video file location
+ *   audioS3Key: string,        // Audio file location (if generated)
+ *   processedVideoS3Key: string, // Final video with audio merged
+ *   metadata: {
+ *     duration: number,        // Actual video duration
+ *     hasAudio: boolean,       // Whether final video includes audio
+ *     fileSize: number,        // File size in bytes
+ *     format: string          // Video format (mp4)
+ *   },
+ *   generationCost: number,    // Total cost in USD
+ *   executionTime: number      // Processing time in milliseconds
+ * }
+ */
+
+// AWS SDK Client Imports
 const { BedrockRuntimeClient, StartAsyncInvokeCommand, GetAsyncInvokeCommand } = require('@aws-sdk/client-bedrock-runtime');
 const { PollyClient, StartSpeechSynthesisTaskCommand } = require('@aws-sdk/client-polly');
 const { S3Client, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
+// Initialize AWS service clients with region configuration
 const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const pollyClient = new PollyClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
+/**
+ * Main Lambda handler function for video generation with audio integration
+ * 
+ * This function orchestrates the complete video generation pipeline:
+ * 1. Generates video using AI models (Luma Ray v2 or Nova Reel)
+ * 2. Generates synchronized audio using Amazon Polly
+ * 3. Merges audio and video using FFmpeg processing
+ * 4. Calculates costs and tracks performance metrics
+ * 
+ * @param {Object} event - Lambda event object containing video generation parameters
+ * @param {string} event.topic - Video topic identifier
+ * @param {string} event.trendId - Unique trend identifier for tracking
+ * @param {string} event.scriptPrompt - Content prompt for AI video generation
+ * @param {Object} event.videoConfig - Video generation configuration
+ * @param {Object} event.audioConfig - Audio generation configuration
+ * 
+ * @param {Object} context - Lambda context object
+ * @param {string} context.awsRequestId - Unique request identifier
+ * @param {number} context.getRemainingTimeInMillis - Remaining execution time
+ * 
+ * @returns {Promise<Object>} Generation result with video/audio S3 keys and metadata
+ * 
+ * @throws {Error} When video generation fails
+ * @throws {Error} When audio generation fails (if requested)
+ * @throws {Error} When audio-video merging fails
+ * 
+ * @example
+ * const event = {
+ *   topic: "Technology-Trends-2025",
+ *   trendId: "tech-1234567890",
+ *   scriptPrompt: "Create a video about AI innovations in 2025",
+ *   videoConfig: {
+ *     durationSeconds: 8,
+ *     includeAudio: true,
+ *     quality: "high"
+ *   },
+ *   audioConfig: {
+ *     voice: "Amy",
+ *     speed: "medium",
+ *     language: "en-US"
+ *   }
+ * };
+ * 
+ * const result = await handler(event, context);
+ * // Returns: { success: true, videoS3Key: "...", processedVideoS3Key: "...", ... }
+ */
 exports.handler = async (event, context) => {
     const startTime = Date.now();
 
+    // Log function invocation with key parameters for debugging
     console.log('Video Generator Lambda started', {
         requestId: context.awsRequestId,
         topic: event.topic,
         trendId: event.trendId,
-        duration: event.videoConfig?.durationSeconds
+        duration: event.videoConfig?.durationSeconds,
+        includeAudio: event.videoConfig?.includeAudio,
+        voice: event.audioConfig?.voice
     });
 
     try {
@@ -131,8 +252,52 @@ exports.handler = async (event, context) => {
     }
 };
 
+/**
+ * Generates AI video content using Luma AI Ray v2 or Amazon Bedrock Nova Reel
+ * 
+ * This function implements a dual-model approach with automatic failover:
+ * 1. Primary: Luma AI Ray v2 (external API) - High quality cinematic videos
+ * 2. Fallback: Amazon Bedrock Nova Reel - Reliable AWS-native generation
+ * 
+ * The function handles cross-region operations, validates inputs, and provides
+ * comprehensive error handling with detailed logging for debugging.
+ * 
+ * @param {Object} event - Video generation event parameters
+ * @param {string} event.topic - Video topic for file organization
+ * @param {string} event.trendId - Unique identifier for this generation
+ * @param {string} event.scriptPrompt - Content prompt for AI model
+ * @param {Object} event.videoConfig - Video configuration options
+ * @param {number} event.videoConfig.durationSeconds - Video length (8-300 seconds)
+ * @param {string} event.videoConfig.quality - Quality setting (high/medium/low)
+ * 
+ * @returns {Promise<Object>} Video generation result
+ * @returns {string} returns.s3Key - S3 location of generated video
+ * @returns {string} returns.jobId - Generation job identifier
+ * @returns {number} returns.duration - Actual video duration in seconds
+ * @returns {number} returns.fileSize - Video file size in bytes
+ * @returns {string} returns.format - Video format (mp4)
+ * 
+ * @throws {Error} When duration is invalid (< 1 or > 300 seconds)
+ * @throws {Error} When VIDEO_BUCKET environment variable is missing
+ * @throws {Error} When both Luma AI and Nova Reel fail
+ * @throws {Error} When S3 upload fails
+ * 
+ * @example
+ * const event = {
+ *   topic: "Technology-Trends-2025",
+ *   trendId: "tech-123456",
+ *   scriptPrompt: "Show futuristic AI technology innovations",
+ *   videoConfig: {
+ *     durationSeconds: 8,
+ *     quality: "high"
+ *   }
+ * };
+ * 
+ * const result = await generateVideo(event);
+ * // Returns: { s3Key: "videos/Technology-Trends-2025/tech-123456_1234567890.mp4", ... }
+ */
 async function generateVideo(event) {
-    console.log('Starting video generation with Luma AI Ray v2');
+    console.log('Starting video generation with dual-model approach (Luma Ray v2 + Nova Reel fallback)');
 
     // Validate video duration (8 seconds to 5 minutes)
     const durationSeconds = event.videoConfig?.durationSeconds || 8;
@@ -293,8 +458,59 @@ async function generateVideo(event) {
     }
 }
 
+/**
+ * Generates synchronized audio narration using Amazon Polly Neural voices
+ * 
+ * This function creates professional-quality audio narration that matches
+ * the video duration exactly. It uses SSML (Speech Synthesis Markup Language)
+ * for precise timing control and strategic pause placement.
+ * 
+ * Features:
+ * - Neural voice synthesis for natural speech
+ * - SSML timing control for perfect synchronization
+ * - Strategic pause placement for 8-second videos
+ * - Multiple voice options (Amy, Matthew, Joanna)
+ * - Automatic script generation based on video content
+ * 
+ * @param {Object} event - Audio generation event parameters
+ * @param {string} event.topic - Video topic for content context
+ * @param {string} event.trendId - Unique identifier for file naming
+ * @param {string} event.scriptPrompt - Content prompt for script generation
+ * @param {Object} event.videoConfig - Video configuration for timing
+ * @param {number} event.videoConfig.durationSeconds - Target audio duration
+ * @param {Object} event.audioConfig - Audio generation settings
+ * @param {string} event.audioConfig.voice - Polly voice (Amy/Matthew/Joanna)
+ * @param {string} event.audioConfig.speed - Speech rate (slow/medium/fast)
+ * @param {string} event.audioConfig.language - Language code (en-US)
+ * 
+ * @returns {Promise<Object>} Audio generation result
+ * @returns {string} returns.s3Key - S3 location of generated audio file
+ * @returns {string} returns.jobId - Polly synthesis job identifier
+ * @returns {string} returns.taskId - Task tracking identifier
+ * @returns {number} returns.duration - Audio duration in seconds
+ * 
+ * @throws {Error} When Polly synthesis task fails
+ * @throws {Error} When S3 upload fails
+ * @throws {Error} When script generation fails
+ * 
+ * @example
+ * const event = {
+ *   topic: "Technology-Trends-2025",
+ *   trendId: "tech-123456",
+ *   scriptPrompt: "Discuss AI innovations transforming industries",
+ *   videoConfig: { durationSeconds: 8 },
+ *   audioConfig: {
+ *     voice: "Amy",
+ *     speed: "medium",
+ *     language: "en-US"
+ *   }
+ * };
+ * 
+ * const result = await generateAudio(event);
+ * // Returns: { s3Key: "audio/Technology-Trends-2025/tech-123456_1234567890.mp3", ... }
+ */
 async function generateAudio(event) {
-    console.log('Starting audio generation with Amazon Polly');
+    console.log('Starting audio generation with Amazon Polly Neural voices');
 
     // Mock mode for testing
     if (process.env.MOCK_VIDEO_GENERATION === 'true') {

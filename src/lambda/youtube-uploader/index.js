@@ -1,17 +1,155 @@
+/**
+ * YouTube Automation Platform - YouTube Uploader Lambda Function
+ * 
+ * This Lambda function handles the final stage of the video generation pipeline:
+ * uploading processed videos (with synchronized audio) to YouTube with SEO optimization.
+ * 
+ * @fileoverview YouTube upload Lambda that handles:
+ * - Video download from S3 (processed videos with audio)
+ * - YouTube API authentication and authorization
+ * - SEO-optimized metadata generation (titles, descriptions, tags)
+ * - Video upload with proper categorization
+ * - Performance tracking and analytics initialization
+ * - Error handling for quota limits and API failures
+ * 
+ * @author YouTube Automation Platform Team
+ * @version 1.3.0
+ * @since 2025-01-01
+ * @lastModified 2025-10-06
+ * 
+ * @requires googleapis - Google APIs client library for YouTube Data API v3
+ * @requires @aws-sdk/client-s3 - For downloading videos from S3
+ * @requires @aws-sdk/client-dynamodb - For storing video metadata
+ * @requires @aws-sdk/client-secrets-manager - For YouTube API credentials
+ * @requires @aws-sdk/client-cloudwatch - For performance metrics
+ * 
+ * Environment Variables:
+ * - AWS_REGION: AWS region for service calls (default: us-east-1)
+ * - VIDEO_BUCKET: S3 bucket containing processed videos
+ * - VIDEOS_TABLE: DynamoDB table for video metadata storage
+ * - YOUTUBE_CREDENTIALS_SECRET: Secrets Manager secret with YouTube API credentials
+ * 
+ * IAM Permissions Required:
+ * - s3:GetObject (video bucket)
+ * - dynamodb:PutItem (videos table)
+ * - secretsmanager:GetSecretValue (YouTube credentials)
+ * - cloudwatch:PutMetricData (performance metrics)
+ * 
+ * Input Event Schema:
+ * {
+ *   topic: string,                    // Video topic for categorization
+ *   trendId: string,                 // Unique trend identifier
+ *   processedVideoS3Key: string,     // S3 key of video with audio
+ *   keywords: string[],              // SEO keywords for optimization
+ *   scriptPrompt: string,            // Original content prompt
+ *   videoMetadata: {
+ *     duration: number,              // Video duration in seconds
+ *     fileSize: number,              // File size in bytes
+ *     hasAudio: boolean,             // Whether video includes audio
+ *     format: string                 // Video format (mp4)
+ *   },
+ *   uploadConfig: {
+ *     privacyStatus: string,         // public/unlisted/private
+ *     title?: string,                // Custom title (optional)
+ *     description?: string,          // Custom description (optional)
+ *     tags?: string[],               // Custom tags (optional)
+ *     categoryId?: string            // YouTube category ID (optional)
+ *   }
+ * }
+ * 
+ * Output Schema:
+ * {
+ *   success: boolean,
+ *   youtubeVideoId: string,          // YouTube video ID
+ *   videoUrl: string,                // Full YouTube URL
+ *   uploadedMetadata: {
+ *     title: string,                 // Final video title
+ *     description: string,           // Final description
+ *     tags: string[],                // Applied tags
+ *     categoryId: string,            // YouTube category
+ *     privacyStatus: string,         // Privacy setting
+ *     thumbnailUrl?: string          // Thumbnail URL (if available)
+ *   },
+ *   performanceTracking: {
+ *     uploadTime: number,            // Upload duration in milliseconds
+ *     initialViews: number,          // Initial view count (usually 0)
+ *     estimatedReach: number         // Estimated audience reach
+ *   },
+ *   executionTime: number            // Total execution time
+ * }
+ * 
+ * Error Handling:
+ * - YouTube API quota exceeded: Returns specific error message
+ * - Authentication failures: Logs detailed error information
+ * - Video file not found: Validates S3 key existence
+ * - Upload failures: Implements retry logic for transient errors
+ */
+
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handler = void 0;
-// Remove old imports - using direct implementation instead
-// const video_repository_1 = require("../../src/repositories/video-repository");
-// const video_metadata_1 = require("../../src/models/video-metadata");
+/**
+ * Main Lambda handler for YouTube video upload with SEO optimization
+ * 
+ * This function manages the complete YouTube upload process:
+ * 1. Authenticates with YouTube API using stored credentials
+ * 2. Downloads processed video (with audio) from S3
+ * 3. Generates SEO-optimized metadata (title, description, tags)
+ * 4. Uploads video to YouTube with proper categorization
+ * 5. Stores metadata in DynamoDB for tracking
+ * 6. Initializes performance tracking metrics
+ * 
+ * The function handles YouTube API quotas, authentication errors, and
+ * provides comprehensive error reporting for debugging.
+ * 
+ * @param {Object} event - Lambda event containing upload parameters
+ * @param {string} event.topic - Video topic for SEO and categorization
+ * @param {string} event.processedVideoS3Key - S3 location of final video with audio
+ * @param {string[]} event.keywords - Keywords for SEO optimization
+ * @param {Object} event.videoMetadata - Video file metadata
+ * @param {Object} event.uploadConfig - YouTube upload configuration
+ * 
+ * @param {Object} context - Lambda execution context
+ * @param {string} context.awsRequestId - Unique request identifier
+ * 
+ * @returns {Promise<Object>} Upload result with YouTube video ID and metadata
+ * 
+ * @throws {Error} When YouTube authentication fails
+ * @throws {Error} When video file cannot be downloaded from S3
+ * @throws {Error} When YouTube upload fails (quota, permissions, etc.)
+ * @throws {Error} When metadata storage fails
+ * 
+ * @example
+ * const event = {
+ *   topic: "Technology-Trends-2025",
+ *   processedVideoS3Key: "videos/tech/processed_video_with_audio.mp4",
+ *   keywords: ["AI", "technology", "innovation", "2025"],
+ *   videoMetadata: {
+ *     duration: 8,
+ *     fileSize: 3291433,
+ *     hasAudio: true,
+ *     format: "mp4"
+ *   },
+ *   uploadConfig: {
+ *     privacyStatus: "public"
+ *   }
+ * };
+ * 
+ * const result = await handler(event, context);
+ * // Returns: { success: true, youtubeVideoId: "abc123", videoUrl: "https://youtube.com/watch?v=abc123", ... }
+ */
 const handler = async (event, context) => {
     const startTime = Date.now();
+    
+    // Log upload initiation with key parameters for debugging and monitoring
     console.log('YouTube Uploader Lambda started', {
         requestId: context.awsRequestId,
         videoS3Key: event.processedVideoS3Key,
         topic: event.topic,
         trendId: event.trendId,
-        fileSize: event.videoMetadata.fileSize
+        fileSize: event.videoMetadata?.fileSize,
+        hasAudio: event.videoMetadata?.hasAudio,
+        privacyStatus: event.uploadConfig?.privacyStatus
     });
     try {
         // Initialize YouTube API client

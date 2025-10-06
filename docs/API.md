@@ -1,8 +1,23 @@
 # YouTube Automation Platform - API Documentation
 
+**Version**: 1.3.0  
+**Last Updated**: October 6, 2025  
+**Status**: Production Ready with Audio Integration
+
 ## 🔌 **API Overview**
 
 The YouTube Automation Platform provides a comprehensive set of APIs for automated video content generation, processing, and publishing. All APIs are built on AWS Lambda functions with REST and event-driven interfaces.
+
+### **Key Features**
+- **AI Video Generation**: Luma AI Ray v2 and Amazon Bedrock Nova Reel integration
+- **Audio Synchronization**: Amazon Polly Neural voices with SSML timing
+- **YouTube Publishing**: Automated upload with SEO optimization
+- **Cost Optimization**: Pay-per-use serverless architecture
+- **Error Handling**: Comprehensive retry logic and failover mechanisms
+- **Performance Tracking**: Real-time metrics and analytics
+
+### **Authentication**
+All APIs use AWS IAM authentication with role-based access control. API keys are managed through AWS Secrets Manager for enhanced security.
 
 ## 🏗️ **API Architecture**
 
@@ -48,6 +63,442 @@ graph TB
     end
     
     WEB --> APIGW
+    CLI --> APIGW
+    SDK --> APIGW
+    WEBHOOK --> APIGW
+    
+    APIGW --> AUTH
+    AUTH --> RATE
+    RATE --> VALID
+    
+    VALID --> TREND_API
+    VALID --> CONTENT_API
+    VALID --> VIDEO_API
+    VALID --> AUDIO_API
+    VALID --> UPLOAD_API
+    
+    VIDEO_API --> EVENT_API
+    AUDIO_API --> EVENT_API
+    UPLOAD_API --> ANALYTICS_API
+```
+
+## 📋 **Core APIs**
+
+### **1. Video Generation API**
+
+#### **Generate Video**
+**Endpoint**: `POST /api/v1/video/generate`  
+**Lambda Function**: `youtube-automation-video-generator`  
+**Description**: Generates AI video content with optional audio synchronization
+
+**Request Body**:
+```json
+{
+  "topic": "Technology-Trends-2025",
+  "trendId": "tech-1234567890",
+  "scriptPrompt": "Create a video about AI innovations in 2025",
+  "videoConfig": {
+    "durationSeconds": 8,
+    "includeAudio": true,
+    "quality": "high",
+    "fps": 24,
+    "dimension": "1280x720"
+  },
+  "audioConfig": {
+    "voice": "Amy",
+    "speed": "medium",
+    "language": "en-US"
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "videoS3Key": "videos/Technology-Trends-2025/tech-1234567890_1698765432.mp4",
+  "audioS3Key": "audio/Technology-Trends-2025/tech-1234567890_1698765432.mp3",
+  "processedVideoS3Key": "videos/Technology-Trends-2025/processed_tech-1234567890.mp4",
+  "metadata": {
+    "duration": 8,
+    "hasAudio": true,
+    "fileSize": 3291433,
+    "format": "mp4",
+    "resolution": "1280x720"
+  },
+  "generationCost": 0.11,
+  "executionTime": 122000
+}
+```
+
+**Error Responses**:
+```json
+{
+  "success": false,
+  "error": "Invalid duration: must be between 1 and 300 seconds",
+  "errorCode": "INVALID_DURATION",
+  "requestId": "req-123456789"
+}
+```
+
+### **2. YouTube Upload API**
+
+#### **Upload Video**
+**Endpoint**: `POST /api/v1/youtube/upload`  
+**Lambda Function**: `youtube-automation-youtube-uploader`  
+**Description**: Uploads processed video to YouTube with SEO optimization
+
+**Request Body**:
+```json
+{
+  "topic": "Technology-Trends-2025",
+  "processedVideoS3Key": "videos/Technology-Trends-2025/processed_video.mp4",
+  "keywords": ["AI", "technology", "innovation", "2025", "trends"],
+  "scriptPrompt": "AI innovations transforming industries in 2025",
+  "videoMetadata": {
+    "duration": 8,
+    "fileSize": 3291433,
+    "hasAudio": true,
+    "format": "mp4"
+  },
+  "uploadConfig": {
+    "privacyStatus": "public",
+    "title": "AI Innovation 2025: Revolutionary Technologies",
+    "description": "Discover the latest AI innovations...",
+    "tags": ["AI", "Innovation", "Technology"],
+    "categoryId": "28"
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "youtubeVideoId": "dQw4w9WgXcQ",
+  "videoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "uploadedMetadata": {
+    "title": "AI Innovation 2025: Revolutionary Technologies",
+    "description": "Discover the latest AI innovations...",
+    "tags": ["AI", "Innovation", "Technology", "2025"],
+    "categoryId": "28",
+    "privacyStatus": "public",
+    "thumbnailUrl": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
+  },
+  "performanceTracking": {
+    "uploadTime": 15000,
+    "initialViews": 0,
+    "estimatedReach": 120
+  },
+  "executionTime": 18500
+}
+```
+
+### **3. Trend Detection API**
+
+#### **Detect Trends**
+**Endpoint**: `GET /api/v1/trends/detect`  
+**Lambda Function**: `youtube-automation-trend-detector`  
+**Description**: Discovers trending topics from multiple sources
+
+**Query Parameters**:
+- `category` (optional): Content category (technology, finance, travel)
+- `limit` (optional): Number of trends to return (default: 10)
+- `region` (optional): Geographic region (default: US)
+
+**Response**:
+```json
+{
+  "success": true,
+  "trends": [
+    {
+      "keyword": "AI technology trends 2025",
+      "searchVolume": 85000,
+      "category": "technology",
+      "relevanceScore": 0.95,
+      "relatedTerms": ["artificial intelligence", "machine learning", "automation"],
+      "context": {
+        "newsArticles": [
+          "AI technology continues to transform industries in 2025"
+        ],
+        "socialMentions": [
+          "AI is revolutionizing how we work and live"
+        ]
+      }
+    }
+  ],
+  "totalTrends": 1,
+  "executionTime": 3200
+}
+```
+
+### **4. Content Analysis API**
+
+#### **Analyze Content**
+**Endpoint**: `POST /api/v1/content/analyze`  
+**Lambda Function**: `youtube-automation-content-analyzer`  
+**Description**: Enhances content using Claude 3.5 Sonnet AI
+
+**Request Body**:
+```json
+{
+  "topic": "Technology-Trends-2025",
+  "rawContent": "AI is changing everything",
+  "targetAudience": "tech enthusiasts",
+  "contentType": "video_script",
+  "optimizationGoals": ["engagement", "seo", "clarity"]
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "enhancedContent": {
+    "script": "Revolutionary AI technologies are transforming industries...",
+    "title": "AI Innovation 2025: Revolutionary Technologies Transforming Our Future",
+    "description": "Discover the most exciting AI innovations of 2025...",
+    "keywords": ["AI", "Innovation", "Technology", "2025", "Future"],
+    "tags": ["AI", "Innovation", "Technology", "2025", "Artificial Intelligence"]
+  },
+  "qualityScore": 0.92,
+  "seoScore": 0.88,
+  "executionTime": 2100
+}
+```
+
+## 🔄 **Event-Driven APIs**
+
+### **Webhook Events**
+
+The platform supports webhook notifications for key events:
+
+#### **Video Generation Complete**
+```json
+{
+  "eventType": "video.generation.complete",
+  "timestamp": "2025-10-06T10:30:00Z",
+  "data": {
+    "trendId": "tech-1234567890",
+    "topic": "Technology-Trends-2025",
+    "videoS3Key": "videos/Technology-Trends-2025/video.mp4",
+    "audioS3Key": "audio/Technology-Trends-2025/audio.mp3",
+    "processedVideoS3Key": "videos/Technology-Trends-2025/processed.mp4",
+    "generationCost": 0.11,
+    "executionTime": 122000
+  }
+}
+```
+
+#### **YouTube Upload Complete**
+```json
+{
+  "eventType": "youtube.upload.complete",
+  "timestamp": "2025-10-06T10:35:00Z",
+  "data": {
+    "youtubeVideoId": "dQw4w9WgXcQ",
+    "videoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "title": "AI Innovation 2025: Revolutionary Technologies",
+    "privacyStatus": "public",
+    "uploadTime": 15000
+  }
+}
+```
+
+## 📊 **Analytics APIs**
+
+### **Performance Metrics**
+**Endpoint**: `GET /api/v1/analytics/performance`  
+**Description**: Retrieves performance metrics and cost analysis
+
+**Response**:
+```json
+{
+  "success": true,
+  "metrics": {
+    "totalVideos": 25,
+    "successRate": 1.0,
+    "averageGenerationTime": 125000,
+    "averageCost": 0.11,
+    "totalCost": 2.75,
+    "audioIntegrationRate": 1.0
+  },
+  "breakdown": {
+    "videoGeneration": {
+      "lumaRayUsage": 0.8,
+      "novaReelUsage": 0.2,
+      "averageTime": 122000
+    },
+    "audioGeneration": {
+      "pollyUsage": 1.0,
+      "averageTime": 15000
+    },
+    "youtubeUpload": {
+      "successRate": 0.96,
+      "quotaLimitHits": 1,
+      "averageTime": 18000
+    }
+  }
+}
+```
+
+## 🔧 **Configuration APIs**
+
+### **Update Configuration**
+**Endpoint**: `PUT /api/v1/config/update`  
+**Description**: Updates system configuration settings
+
+**Request Body**:
+```json
+{
+  "videoDefaults": {
+    "durationSeconds": 8,
+    "quality": "high",
+    "includeAudio": true
+  },
+  "audioDefaults": {
+    "voice": "Amy",
+    "speed": "medium"
+  },
+  "uploadDefaults": {
+    "privacyStatus": "public",
+    "categoryId": "28"
+  }
+}
+```
+
+## 🚨 **Error Handling**
+
+### **Standard Error Response**
+```json
+{
+  "success": false,
+  "error": "Detailed error message",
+  "errorCode": "ERROR_CODE",
+  "requestId": "req-123456789",
+  "timestamp": "2025-10-06T10:30:00Z",
+  "details": {
+    "field": "Additional error context"
+  }
+}
+```
+
+### **Common Error Codes**
+- `INVALID_DURATION`: Video duration outside allowed range (1-300 seconds)
+- `QUOTA_EXCEEDED`: YouTube API quota limit reached
+- `AUTHENTICATION_FAILED`: Invalid or expired credentials
+- `VIDEO_GENERATION_FAILED`: AI model generation error
+- `AUDIO_SYNC_FAILED`: Audio-video synchronization error
+- `S3_ACCESS_DENIED`: Insufficient S3 permissions
+- `RATE_LIMIT_EXCEEDED`: Too many requests
+
+## 📈 **Rate Limits**
+
+| API Endpoint | Rate Limit | Burst Limit |
+|--------------|------------|-------------|
+| Video Generation | 10/hour | 3/minute |
+| YouTube Upload | 50/day | 5/hour |
+| Trend Detection | 100/hour | 10/minute |
+| Content Analysis | 200/hour | 20/minute |
+
+## 🔐 **Security**
+
+### **Authentication**
+- AWS IAM roles and policies
+- API keys stored in AWS Secrets Manager
+- Request signing using AWS Signature Version 4
+
+### **Authorization**
+- Role-based access control (RBAC)
+- Resource-level permissions
+- Cross-account access controls
+
+### **Data Protection**
+- Encryption at rest (S3, DynamoDB)
+- Encryption in transit (TLS 1.2+)
+- Secure credential management
+
+## 📚 **SDK Examples**
+
+### **Node.js SDK**
+```javascript
+const { YouTubeAutomationClient } = require('@youtube-automation/sdk');
+
+const client = new YouTubeAutomationClient({
+  region: 'us-east-1',
+  credentials: {
+    accessKeyId: 'your-access-key',
+    secretAccessKey: 'your-secret-key'
+  }
+});
+
+// Generate video with audio
+const result = await client.generateVideo({
+  topic: 'Technology-Trends-2025',
+  scriptPrompt: 'AI innovations in 2025',
+  videoConfig: {
+    durationSeconds: 8,
+    includeAudio: true
+  },
+  audioConfig: {
+    voice: 'Amy'
+  }
+});
+
+console.log('Video generated:', result.videoUrl);
+```
+
+### **Python SDK**
+```python
+from youtube_automation import YouTubeAutomationClient
+
+client = YouTubeAutomationClient(
+    region='us-east-1',
+    access_key_id='your-access-key',
+    secret_access_key='your-secret-key'
+)
+
+# Generate and upload video
+result = client.generate_and_upload_video(
+    topic='Technology-Trends-2025',
+    script_prompt='AI innovations in 2025',
+    video_config={
+        'duration_seconds': 8,
+        'include_audio': True
+    },
+    audio_config={
+        'voice': 'Amy'
+    },
+    upload_config={
+        'privacy_status': 'public'
+    }
+)
+
+print(f'Video uploaded: {result.youtube_url}')
+```
+
+## 🧪 **Testing**
+
+### **API Testing Tools**
+- **Postman Collection**: Available in `tools/testing/postman/`
+- **Integration Tests**: Run with `npm run test:integration`
+- **Load Testing**: Use `tools/testing/load-test.js`
+
+### **Test Environment**
+- **Base URL**: `https://api-test.youtube-automation.com`
+- **Authentication**: Test credentials in AWS Secrets Manager
+- **Rate Limits**: Relaxed for testing (10x normal limits)
+
+---
+
+## 📞 **Support**
+
+- **API Issues**: [GitHub Issues](https://github.com/yourusername/youtube-automation-platform/issues)
+- **Documentation**: [API Docs](https://docs.youtube-automation.com)
+- **Status Page**: [System Status](https://status.youtube-automation.com)
+
+**Last Updated**: October 6, 2025  
+**API Version**: 1.3.0
     CLI --> APIGW
     SDK --> APIGW
     WEBHOOK --> APIGW
