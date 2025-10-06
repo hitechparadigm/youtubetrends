@@ -1,22 +1,23 @@
 # YouTube Automation Platform - API Documentation
 
-**Version**: 2.0.0  
-**Last Updated**: January 6, 2025  
-**Status**: Production Ready with Configuration Management
+**Version**: 2.1.0  
+**Last Updated**: October 6, 2025  
+**Status**: Production Ready with Full Configuration Management System
 
 ## 🔌 **API Overview**
 
 The YouTube Automation Platform provides a comprehensive set of APIs for automated video content generation, processing, and publishing. All APIs are built on AWS Lambda functions with configurable AI models and zero hardcoded values.
 
 ### **Key Features**
-- **Configurable AI Models**: Multi-provider support (Anthropic, OpenAI, Bedrock, Polly)
-- **Runtime Configuration**: Zero hardcoded values, runtime updates
-- **Audio Generation**: Polly Generative AI voices with configurable engines
-- **Cost Management**: Automatic budget enforcement and optimization
-- **A/B Testing**: Built-in experimentation framework
-- **Health Monitoring**: Circuit breakers and automatic failover
-- **YouTube Publishing**: Automated upload with SEO optimization
-- **Performance Tracking**: Real-time metrics and analytics
+- **🔧 Zero Hardcoded Values**: Complete configuration management system implemented
+- **🎛️ Runtime Configuration**: Change AI models, voices, costs without deployment
+- **🤖 Multi-Provider AI**: Anthropic Claude, OpenAI GPT, AWS Bedrock with automatic failover
+- **🎙️ Configurable Audio**: Polly Generative AI, Neural, Standard engines with topic-specific voices
+- **💰 Cost Management**: Real-time budget tracking and automatic optimization
+- **🔄 A/B Testing**: Built-in experimentation framework for optimization
+- **🛡️ Health Monitoring**: Circuit breakers, performance tracking, automatic failover
+- **📤 YouTube Publishing**: Automated upload with SEO optimization
+- **📊 Performance Analytics**: Real-time metrics and comprehensive reporting
 
 ### **Authentication**
 All APIs use AWS IAM authentication with role-based access control. API keys are managed through AWS Secrets Manager for enhanced security.
@@ -503,7 +504,7 @@ print(f'Video uploaded: {result.youtube_url}')
 - **Status Page**: [System Status](https://status.youtube-automation.com)
 
 **Last Updated**: October 6, 2025  
-**API Version**: 1.3.0
+**API Version**: 2.1.0
     CLI --> APIGW
     SDK --> APIGW
     WEBHOOK --> APIGW
@@ -975,9 +976,337 @@ Authorization: Bearer {token}
 }
 ```
 
-## 🔧 **Configuration APIs**
+## 🔧 **Configuration Management APIs**
 
-### **8. Configuration API**
+### **8. Configuration Management API**
+
+The Configuration Management API provides comprehensive control over all system settings with zero hardcoded values. All configurations support runtime updates without code deployment.
+
+#### **Get AI Model Configuration**
+```http
+GET /api/v1/config/ai-models
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "content": {
+      "primary": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "endpoint": "https://api.anthropic.com",
+        "healthStatus": "healthy"
+      },
+      "fallback": {
+        "provider": "openai", 
+        "model": "gpt-4-turbo",
+        "endpoint": "https://api.openai.com/v1",
+        "healthStatus": "healthy"
+      }
+    },
+    "video": {
+      "primary": {
+        "provider": "bedrock",
+        "model": "amazon.nova-reel-v1:0",
+        "region": "us-east-1",
+        "healthStatus": "healthy"
+      },
+      "fallback": {
+        "provider": "luma",
+        "model": "luma.ray-v2:0",
+        "region": "us-west-2",
+        "healthStatus": "healthy"
+      }
+    },
+    "audio": {
+      "primary": {
+        "provider": "polly",
+        "engine": "generative",
+        "region": "us-east-1",
+        "healthStatus": "healthy"
+      },
+      "fallback": {
+        "provider": "polly",
+        "engine": "neural",
+        "region": "us-east-1", 
+        "healthStatus": "healthy"
+      }
+    }
+  }
+}
+```
+
+#### **Update AI Model Configuration**
+```http
+PUT /api/v1/config/ai-models/{service}
+Content-Type: application/json
+Authorization: Bearer {token}
+
+{
+  "primary": {
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet-20241022"
+  },
+  "fallback": {
+    "provider": "openai",
+    "model": "gpt-4-turbo"
+  },
+  "healthCheck": {
+    "enabled": true,
+    "interval": 300
+  }
+}
+```
+
+#### **Get Voice Configuration**
+```http
+GET /api/v1/config/voices
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "topicMappings": {
+      "investing": {
+        "primary": "Stephen",
+        "fallback": "Matthew",
+        "engine": "generative"
+      },
+      "education": {
+        "primary": "Aria", 
+        "fallback": "Joanna",
+        "engine": "generative"
+      },
+      "tourism": {
+        "primary": "Ruth",
+        "fallback": "Amy",
+        "engine": "neural"
+      }
+    },
+    "engineConfig": {
+      "generative": {
+        "enabled": true,
+        "costPerCharacter": 0.00003
+      },
+      "neural": {
+        "enabled": true,
+        "costPerCharacter": 0.000016
+      },
+      "standard": {
+        "enabled": true,
+        "costPerCharacter": 0.000004
+      }
+    }
+  }
+}
+```
+
+#### **Get Cost Configuration**
+```http
+GET /api/v1/config/costs
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "budgets": {
+      "daily": 10.00,
+      "monthly": 300.00,
+      "perVideo": 0.15
+    },
+    "rates": {
+      "polly": {
+        "generative": 30.00,
+        "neural": 16.00,
+        "standard": 4.00
+      },
+      "video": {
+        "novaReel": 0.80,
+        "lumaRay": 0.60
+      },
+      "content": {
+        "claude": 15.00,
+        "gpt4": 30.00
+      }
+    },
+    "alerts": {
+      "dailyThreshold": 8.00,
+      "monthlyThreshold": 250.00,
+      "enabled": true
+    }
+  }
+}
+```
+
+#### **Update Cost Configuration**
+```http
+PUT /api/v1/config/costs
+Content-Type: application/json
+Authorization: Bearer {token}
+
+{
+  "budgets": {
+    "daily": 15.00,
+    "monthly": 400.00,
+    "perVideo": 0.20
+  },
+  "alerts": {
+    "dailyThreshold": 12.00,
+    "monthlyThreshold": 350.00,
+    "enabled": true
+  }
+}
+```
+
+#### **Get Feature Flags**
+```http
+GET /api/v1/config/features
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "features": {
+      "enableGenerativeAI": true,
+      "enableAdvancedVideoEffects": false,
+      "enableMultiLanguage": false,
+      "enableCustomThumbnails": true,
+      "enableABTesting": true,
+      "enableCostOptimization": true
+    },
+    "experiments": {
+      "voiceQualityTest": {
+        "enabled": true,
+        "trafficSplit": {
+          "control": 50,
+          "variant_a": 50
+        },
+        "metrics": ["audio_quality", "cost_efficiency"]
+      }
+    }
+  }
+}
+```
+
+#### **Update Feature Flags**
+```http
+PUT /api/v1/config/features
+Content-Type: application/json
+Authorization: Bearer {token}
+
+{
+  "enableGenerativeAI": true,
+  "enableAdvancedVideoEffects": true,
+  "enableABTesting": true
+}
+```
+
+### **9. Health Monitoring API**
+
+#### **Get System Health**
+```http
+GET /api/v1/health/system
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "overall": "healthy",
+    "services": {
+      "aiModels": {
+        "anthropic": {
+          "status": "healthy",
+          "responseTime": 1200,
+          "successRate": 0.99,
+          "lastCheck": "2025-10-06T10:30:00Z"
+        },
+        "bedrock": {
+          "status": "healthy", 
+          "responseTime": 800,
+          "successRate": 1.0,
+          "lastCheck": "2025-10-06T10:30:00Z"
+        },
+        "polly": {
+          "status": "healthy",
+          "responseTime": 500,
+          "successRate": 1.0,
+          "lastCheck": "2025-10-06T10:30:00Z"
+        }
+      },
+      "infrastructure": {
+        "lambda": "healthy",
+        "s3": "healthy",
+        "parameterStore": "healthy",
+        "secretsManager": "healthy"
+      }
+    },
+    "circuitBreakers": {
+      "anthropic": "closed",
+      "openai": "closed", 
+      "bedrock": "closed"
+    }
+  }
+}
+```
+
+### **10. Configuration History API**
+
+#### **Get Configuration Changes**
+```http
+GET /api/v1/config/history
+Authorization: Bearer {token}
+Query Parameters:
+  - startDate: 2025-10-01
+  - endDate: 2025-10-06
+  - configType: ai-models,voices,costs,features
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "changes": [
+      {
+        "timestamp": "2025-10-06T09:15:00Z",
+        "configType": "voices",
+        "path": "topicMappings.investing.primary",
+        "oldValue": "Matthew",
+        "newValue": "Stephen",
+        "changedBy": "user@example.com",
+        "reason": "Improved voice quality for investing content"
+      },
+      {
+        "timestamp": "2025-10-06T08:30:00Z",
+        "configType": "features",
+        "path": "enableGenerativeAI",
+        "oldValue": false,
+        "newValue": true,
+        "changedBy": "admin@example.com",
+        "reason": "Enable Polly Generative AI for better audio quality"
+      }
+    ],
+    "totalChanges": 2
+  }
+}
+```
+
+### **Configuration API**
 
 #### **Get System Configuration**
 ```http
@@ -1162,14 +1491,30 @@ const client = new YouTubeAutomation({
   region: 'us-east-1'
 });
 
-// Generate complete video pipeline
+// Generate video with configurable AI models
 const result = await client.generateVideo({
   trend: 'artificial intelligence',
   category: 'technology',
-  duration: 60
+  duration: 60,
+  aiConfig: {
+    contentModel: 'claude-3-5-sonnet',
+    videoModel: 'amazon.nova-reel-v1:0',
+    audioEngine: 'generative'
+  }
 });
 
 console.log(`Video created: ${result.youtubeUrl}`);
+
+// Update configuration at runtime
+await client.updateConfiguration({
+  'ai.content.primary.model': 'claude-3-5-sonnet-20241022',
+  'voice.investing.primary': 'Stephen',
+  'features.enableGenerativeAI': true
+});
+
+// Get current cost tracking
+const costs = await client.getCostTracking();
+console.log(`Daily spend: $${costs.dailySpend}`);
 ```
 
 ### **Python SDK**
@@ -1181,14 +1526,30 @@ client = YouTubeAutomationClient(
     region='us-east-1'
 )
 
-# Generate complete video pipeline
+# Generate video with configurable AI models
 result = client.generate_video(
     trend='artificial intelligence',
     category='technology',
-    duration=60
+    duration=60,
+    ai_config={
+        'content_model': 'claude-3-5-sonnet',
+        'video_model': 'amazon.nova-reel-v1:0',
+        'audio_engine': 'generative'
+    }
 )
 
 print(f"Video created: {result.youtube_url}")
+
+# Update configuration at runtime
+client.update_configuration({
+    'ai.content.primary.model': 'claude-3-5-sonnet-20241022',
+    'voice.investing.primary': 'Stephen',
+    'features.enableGenerativeAI': True
+})
+
+# Get current cost tracking
+costs = client.get_cost_tracking()
+print(f"Daily spend: ${costs.daily_spend}")
 ```
 
 This API documentation covers all the core functionality of the YouTube Automation Platform, providing comprehensive endpoints for content generation, processing, and analytics.

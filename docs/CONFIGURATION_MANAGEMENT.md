@@ -58,22 +58,16 @@ VOICE_TOURISM_PRIMARY=Ruth         // Generative AI voice
 VOICE_TECHNOLOGY_PRIMARY=Stephen   // Generative AI voice
 ```
 
-### Cost Management
+### Cost Tracking
 
-Configurable budgets and rates:
+Simple configurable rates for cost calculation:
 
 ```javascript
-// Budget Limits
-DAILY_BUDGET=10.00
-MONTHLY_BUDGET=300.00
-PER_VIDEO_BUDGET=0.15
-
 // Pricing Rates (per 1M characters/tokens)
 POLLY_GENERATIVE_RATE=30.00
 POLLY_NEURAL_RATE=16.00
 POLLY_STANDARD_RATE=4.00
-ANTHROPIC_CLAUDE_SONNET_RATE=3.00
-OPENAI_GPT4O_RATE=5.00
+VIDEO_NOVA_REEL_RATE=0.80  // per minute
 ```
 
 ### Feature Flags

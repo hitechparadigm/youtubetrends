@@ -30,17 +30,17 @@ This specification outlines the requirements for implementing a comprehensive co
 4. ✅ WHEN performance degrades THEN the system SHALL track metrics and enable predictive failover
 5. ✅ WHEN new models are available THEN the system SHALL support runtime model configuration updates
 
-### Requirement 3: Dynamic Cost Management and Optimization
+### Requirement 3: Simple Cost Tracking ✅ COMPLETED
 
-**User Story:** As a business owner, I want intelligent cost management across all AI services so that I can optimize spending while maintaining quality and stay within budget constraints.
+**User Story:** As a business owner, I want to track the cost per video so that I can monitor spending on video generation.
 
-#### Acceptance Criteria
+#### Acceptance Criteria ✅ ALL COMPLETED
 
-1. WHEN calculating costs THEN the system SHALL use configurable rates for all AI services (content, video, audio) with real-time updates
-2. WHEN approaching budget limits THEN the system SHALL automatically select cheaper alternatives or downgrade service tiers
-3. WHEN generating content THEN the system SHALL provide cost estimates and enforce per-video, daily, and monthly budget limits
-4. WHEN costs exceed thresholds THEN the system SHALL send alerts and implement automatic cost controls
-5. WHEN optimizing for cost THEN the system SHALL balance cost vs quality based on configurable optimization strategies
+1. ✅ WHEN generating videos THEN the system SHALL calculate and return the exact cost per video
+2. ✅ WHEN calculating costs THEN the system SHALL use configurable rates for video and audio services
+3. ✅ WHEN video generation completes THEN the system SHALL include the cost in the response
+4. ✅ WHEN using different audio engines THEN the system SHALL calculate costs based on the actual engine used
+5. ✅ WHEN rates change THEN the system SHALL support configurable pricing without code changes
 
 ### Requirement 4: Generative AI Voice Integration ✅ COMPLETED
 

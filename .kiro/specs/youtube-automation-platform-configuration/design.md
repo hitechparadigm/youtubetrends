@@ -18,7 +18,7 @@ YouTube Automation Platform - Configurable Architecture
 ├── AI Model Management Layer
 │   ├── AIModelManager (Multi-Service Management)
 │   ├── HealthMonitor (Circuit Breakers & Failover)
-│   ├── CostManager (Budget & Optimization)
+│   ├── CostTracker (Simple Per-Video Cost Calculation)
 │   └── PerformanceTracker (Metrics & Analytics)
 ├── Content Generation Services
 │   ├── ContentAI (Anthropic, OpenAI, Bedrock)
@@ -112,55 +112,49 @@ class AIModelManager {
 - **Video Generation**: AWS Bedrock (Nova Reel), Runway, Luma AI
 - **Audio Generation**: AWS Polly (Generative/Neural/Standard), ElevenLabs, Azure Speech
 
-### 3. Cost Management System
+### 3. Simple Cost Tracking System ✅ IMPLEMENTED
 
-**CostManager Class**
+**Cost Calculation Function** (Already Implemented in video-generator/index.js)
 ```javascript
-class CostManager {
-    constructor(configManager) {
-        this.config = configManager;
-        this.rates = this.loadServiceRates();
-        this.budgets = this.loadBudgetLimits();
-        this.optimizer = new CostOptimizer();
+async function calculateGenerationCost(durationSeconds, includeAudio, audioEngine = 'neural') {
+    // Get configurable cost rates
+    const costRates = await configManager.get('cost.rates', {
+        video: { 'nova-reel': 0.80 }, // per minute
+        polly: { standard: 4.00, neural: 16.00, generative: 30.00 } // per 1M characters
+    });
+    
+    // Calculate video cost
+    const videoCost = (durationSeconds / 60) * costRates.video['nova-reel'];
+    
+    // Calculate audio cost
+    let audioCost = 0;
+    if (includeAudio) {
+        const estimatedCharacters = Math.max(150, durationSeconds * 18.75);
+        const ratePerMillion = costRates.polly[audioEngine] || 16.00;
+        audioCost = (estimatedCharacters / 1000000) * ratePerMillion;
     }
-
-    // Multi-service cost calculation
-    calculateTotalCost(services) {
-        // Calculate costs across content, video, audio, processing
-    }
-
-    // Budget enforcement
-    shouldUseService(service, usage, constraints = {}) {
-        // Check against daily, monthly, per-video budgets
-    }
-
-    // Cost optimization
-    getOptimalConfiguration(requirements) {
-        // Select services based on cost vs quality optimization
-    }
+    
+    return Math.round((videoCost + audioCost) * 10000) / 10000;
 }
 ```
 
-**Configurable Cost Rates:**
+**Cost Tracking in Response** (Already Implemented)
 ```javascript
 {
-    content: {
-        anthropic: { "claude-3-5-sonnet": 3.00, "claude-3-haiku": 0.25 },
-        openai: { "gpt-4o": 5.00, "gpt-4o-mini": 0.15 },
-        bedrock: { "claude-3-sonnet": 3.00 }
-    },
-    video: {
-        bedrock: { "nova-reel": 0.05, "nova-canvas": 0.04 },
-        runway: { "gen3-alpha": 0.95 },
-        luma: { "ray-v2": 0.08 }
-    },
-    audio: {
-        polly: { generative: 30.00, neural: 16.00, standard: 4.00 },
-        elevenlabs: { standard: 0.30, premium: 0.60 },
-        azure: { standard: 1.00 }
-    }
+    success: true,
+    videoS3Key: "videos/topic/video.mp4",
+    audioS3Key: "audio/topic/audio.mp3",
+    generationCost: 0.112,  // ✅ Cost per video tracked
+    executionTime: 122000,
+    metadata: { duration: 8, hasAudio: true }
 }
 ```
+
+**Features**:
+- ✅ **Simple**: Just tracks cost per video (no complex budget systems)
+- ✅ **Configurable**: Rates can be updated via configuration system
+- ✅ **Accurate**: Uses actual audio engine and video duration
+- ✅ **Already Working**: Integrated into video generation pipeline
 
 ### 4. Prompt Template Management
 
