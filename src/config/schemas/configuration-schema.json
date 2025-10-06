@@ -1,0 +1,193 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "YouTube Automation Platform Configuration Schema",
+  "type": "object",
+  "properties": {
+    "ai": {
+      "type": "object",
+      "properties": {
+        "models": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "object",
+              "properties": {
+                "primary": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": ["anthropic", "openai", "bedrock"]
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "endpoint": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "maxTokens": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100000
+                    },
+                    "temperature": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 2
+                    }
+                  },
+                  "required": ["provider", "model"]
+                },
+                "fallback": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": ["anthropic", "openai", "bedrock"]
+                    },
+                    "model": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "required": ["primary"]
+            },
+            "video": {
+              "type": "object",
+              "properties": {
+                "primary": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": ["bedrock", "runway", "stability", "luma"]
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "region": {
+                      "type": "string"
+                    },
+                    "maxDuration": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 300
+                    }
+                  },
+                  "required": ["provider", "model"]
+                }
+              }
+            },
+            "audio": {
+              "type": "object",
+              "properties": {
+                "primary": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": ["polly", "elevenlabs", "azure"]
+                    },
+                    "engine": {
+                      "type": "string",
+                      "enum": ["generative", "neural", "standard"]
+                    },
+                    "voiceId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["provider", "engine"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "budgets": {
+          "type": "object",
+          "properties": {
+            "daily": {
+              "type": "number",
+              "minimum": 0
+            },
+            "monthly": {
+              "type": "number",
+              "minimum": 0
+            },
+            "perVideo": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "rates": {
+          "type": "object",
+          "properties": {
+            "polly": {
+              "type": "object",
+              "properties": {
+                "standard": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "neural": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "generative": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "video": {
+      "type": "object",
+      "properties": {
+        "defaultDuration": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300
+        },
+        "resolution": {
+          "type": "string",
+          "enum": ["1920x1080", "1280x720", "3840x2160"]
+        },
+        "framerate": {
+          "type": "integer",
+          "enum": [24, 30, 60]
+        },
+        "quality": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "ultra"]
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "properties": {
+        "enableGenerativeAI": {
+          "type": "boolean"
+        },
+        "enableAdvancedVideoEffects": {
+          "type": "boolean"
+        },
+        "enableMultiLanguage": {
+          "type": "boolean"
+        },
+        "enableCustomThumbnails": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

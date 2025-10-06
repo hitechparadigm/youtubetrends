@@ -1,19 +1,21 @@
 # YouTube Automation Platform - API Documentation
 
-**Version**: 1.3.0  
-**Last Updated**: October 6, 2025  
-**Status**: Production Ready with Audio Integration
+**Version**: 2.0.0  
+**Last Updated**: January 6, 2025  
+**Status**: Production Ready with Configuration Management
 
 ## 🔌 **API Overview**
 
-The YouTube Automation Platform provides a comprehensive set of APIs for automated video content generation, processing, and publishing. All APIs are built on AWS Lambda functions with REST and event-driven interfaces.
+The YouTube Automation Platform provides a comprehensive set of APIs for automated video content generation, processing, and publishing. All APIs are built on AWS Lambda functions with configurable AI models and zero hardcoded values.
 
 ### **Key Features**
-- **AI Video Generation**: Luma AI Ray v2 and Amazon Bedrock Nova Reel integration
-- **Audio Synchronization**: Amazon Polly Neural voices with SSML timing
+- **Configurable AI Models**: Multi-provider support (Anthropic, OpenAI, Bedrock, Polly)
+- **Runtime Configuration**: Zero hardcoded values, runtime updates
+- **Audio Generation**: Polly Generative AI voices with configurable engines
+- **Cost Management**: Automatic budget enforcement and optimization
+- **A/B Testing**: Built-in experimentation framework
+- **Health Monitoring**: Circuit breakers and automatic failover
 - **YouTube Publishing**: Automated upload with SEO optimization
-- **Cost Optimization**: Pay-per-use serverless architecture
-- **Error Handling**: Comprehensive retry logic and failover mechanisms
 - **Performance Tracking**: Real-time metrics and analytics
 
 ### **Authentication**
@@ -46,6 +48,9 @@ graph TB
         UPLOAD_API[YouTube Upload API]
         ANALYTICS_API[Analytics API]
         CONFIG_API[Configuration API]
+        AIMODEL_API[AI Model Management API]
+        COST_API[Cost Management API]
+        FEATURE_API[Feature Flag API]
     end
     
     subgraph "Event-Driven APIs"

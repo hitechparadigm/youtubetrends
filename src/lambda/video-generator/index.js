@@ -75,11 +75,37 @@ const { PollyClient, StartSpeechSynthesisTaskCommand } = require('@aws-sdk/clien
 const { S3Client, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 
-// Initialize AWS service clients with region configuration
-const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1' });
-const pollyClient = new PollyClient({ region: process.env.AWS_REGION || 'us-east-1' });
-const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'us-east-1' });
+// Configuration Management
+const ConfigurationFactory = require('../../config/ConfigurationFactory');
+const AIModelFactory = require('../../ai/AIModelFactory');
+
+// Initialize configuration manager
+let configManager;
+let awsRegion;
+
+async function initializeConfiguration() {
+    if (!configManager) {
+        configManager = ConfigurationFactory.getInstance();
+        awsRegion = await configManager.get('aws.region', process.env.AWS_REGION || 'us-east-1');
+    }
+    return { configManager, awsRegion };
+}
+
+// Initialize AWS service clients with configurable region
+let bedrockClient, pollyClient, s3Client, lambdaClient;
+
+async function initializeAWSClients() {
+    const { awsRegion: region } = await initializeConfiguration();
+    
+    if (!bedrockClient) {
+        bedrockClient = new BedrockRuntimeClient({ region });
+        pollyClient = new PollyClient({ region });
+        s3Client = new S3Client({ region });
+        lambdaClient = new LambdaClient({ region });
+    }
+    
+    return { bedrockClient, pollyClient, s3Client, lambdaClient };
+}
 
 /**
  * Main Lambda handler function for video generation with audio integration
@@ -130,6 +156,10 @@ const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'us-ea
 exports.handler = async (event, context) => {
     const startTime = Date.now();
 
+    // Initialize configuration and AWS clients
+    await initializeConfiguration();
+    await initializeAWSClients();
+
     // Log function invocation with key parameters for debugging
     console.log('Video Generator Lambda started', {
         requestId: context.awsRequestId,
@@ -141,7 +171,7 @@ exports.handler = async (event, context) => {
     });
 
     try {
-        // Generate video using Amazon Bedrock Nova Reel
+        // Generate video using configurable AI models
         const videoResult = await generateVideo(event);
 
         // Generate audio narration if requested
@@ -150,10 +180,12 @@ exports.handler = async (event, context) => {
             audioResult = await generateAudio(event);
         }
 
-        // Calculate costs
-        const generationCost = calculateGenerationCost(
+        // Calculate costs with actual audio engine used
+        const audioEngine = audioResult?.engine || 'neural'; // Get actual engine from result
+        const generationCost = await calculateGenerationCost(
             event.videoConfig?.durationSeconds || 6,
-            event.videoConfig?.includeAudio || false
+            event.videoConfig?.includeAudio || false,
+            audioEngine
         );
 
         console.log('Video generation completed successfully', {
@@ -549,15 +581,24 @@ async function generateAudio(event) {
             throw new Error('VIDEO_BUCKET environment variable is required');
         }
 
+        // Get configurable audio settings
+        const audioModelConfig = await configManager.get('ai.models.audio', {
+            primary: { engine: 'generative', provider: 'polly' },
+            fallback: { engine: 'neural', provider: 'polly' }
+        });
+
+        // Determine which engine to use based on configuration and cost constraints
+        const selectedEngine = await selectAudioEngine(audioModelConfig, event);
+        
         const response = await pollyClient.send(new StartSpeechSynthesisTaskCommand({
             Text: ssmlText,
             TextType: 'ssml',
             VoiceId: voiceSettings.voiceId,
             OutputFormat: 'mp3',
-            Engine: 'standard', // Use reliable standard engine
-            OutputS3BucketName: process.env.VIDEO_BUCKET,
+            Engine: selectedEngine, // Use configurable engine
+            OutputS3BucketName: await configManager.get('storage.videoBucket', process.env.VIDEO_BUCKET),
             OutputS3KeyPrefix: `audio/${event.topic}/`,
-            SampleRate: '24000' // Use high quality sample rate
+            SampleRate: await configManager.get('audio.sampleRate', '24000')
         }));
 
         console.log('Polly job started', {
@@ -629,60 +670,130 @@ function getDurationContext(durationSeconds) {
     }
 }
 
-function getTopicVoiceSettings(topic, audioConfig) {
-    const topicVoices = {
-        'etf-investing-2025': { 
-            voiceId: 'Matthew',
-            rate: 'medium',
-            pitch: 'medium',
-            volume: 'medium',
-            emphasis: 'moderate'
-        },
-        'mexico-travel-2025': { 
-            voiceId: 'Amy',
-            rate: 'medium',
-            pitch: '+2%',
-            volume: 'medium',
-            emphasis: 'moderate'
-        },
-        investing: { 
-            voiceId: 'Matthew', 
-            rate: '100%', 
-            pitch: 'medium',
-            volume: 'loud',
-            emphasis: 'strong'
-        },
-        education: { 
-            voiceId: 'Joanna', 
-            rate: 'medium', 
-            pitch: '+3%',
-            volume: 'loud',
-            emphasis: 'moderate'
-        },
-        tourism: { 
-            voiceId: 'Amy', 
-            rate: '105%', 
-            pitch: '+8%',
-            volume: 'loud',
-            emphasis: 'strong'
-        },
-        technology: { 
-            voiceId: 'Brian', 
-            rate: 'medium', 
-            pitch: '+2%',
-            volume: 'loud',
-            emphasis: 'moderate'
-        },
-        health: { 
-            voiceId: 'Kimberly', 
-            rate: '90%', 
-            pitch: 'medium',
-            volume: 'medium',
-            emphasis: 'moderate'
+/**
+ * Select audio engine based on configuration and cost constraints
+ * 
+ * @param {Object} audioModelConfig - Audio model configuration
+ * @param {Object} event - Event object with cost constraints
+ * @returns {Promise<string>} Selected audio engine
+ */
+async function selectAudioEngine(audioModelConfig, event) {
+    try {
+        // Get cost configuration
+        const costConfig = await configManager.get('cost.budgets', { perVideo: 0.15 });
+        const maxCost = event.costConstraints?.maxCost || costConfig.perVideo;
+        
+        // Check if generative AI is enabled
+        const generativeEnabled = await configManager.get('features.enableGenerativeAI', true);
+        
+        if (!generativeEnabled) {
+            console.log('Generative AI disabled, using fallback engine');
+            return audioModelConfig.fallback?.engine || 'neural';
         }
-    };
+        
+        // Estimate cost for generative engine (rough calculation)
+        const textLength = event.scriptPrompt?.length || 150;
+        const generativeCost = (textLength / 1000000) * 30.00; // $30 per 1M characters
+        
+        if (generativeCost <= maxCost) {
+            console.log(`Using generative engine (cost: $${generativeCost.toFixed(4)})`);
+            return audioModelConfig.primary?.engine || 'generative';
+        } else {
+            console.log(`Cost too high for generative ($${generativeCost.toFixed(4)} > $${maxCost}), using fallback`);
+            return audioModelConfig.fallback?.engine || 'neural';
+        }
+        
+    } catch (error) {
+        console.warn('Error selecting audio engine, using default:', error.message);
+        return 'neural'; // Safe fallback
+    }
+}
 
-    return topicVoices[topic?.toLowerCase()] || topicVoices.education;
+/**
+ * Get configurable voice settings for topic
+ * 
+ * @param {string} topic - Content topic
+ * @param {Object} audioConfig - Audio configuration
+ * @returns {Promise<Object>} Voice settings
+ */
+async function getTopicVoiceSettings(topic, audioConfig) {
+    try {
+        // Get voice mappings from configuration
+        const voiceMappings = await configManager.get('voice.mappings', {});
+        
+        // Check for topic-specific configuration
+        const topicConfig = voiceMappings[topic?.toLowerCase()];
+        if (topicConfig) {
+            return topicConfig;
+        }
+        
+        // Get default voice mappings (using confirmed Generative AI voices)
+        const defaultMappings = {
+            'etf-investing-2025': { 
+                voiceId: await configManager.get('voice.investing.primary', 'Stephen'), // ✅ Confirmed Generative AI voice
+                rate: 'medium',
+                pitch: 'medium',
+                volume: 'medium',
+                emphasis: 'moderate'
+            },
+            'mexico-travel-2025': { 
+                voiceId: await configManager.get('voice.tourism.primary', 'Ruth'), // ✅ Confirmed Generative AI voice
+                rate: 'medium',
+                pitch: '+2%',
+                volume: 'medium',
+                emphasis: 'moderate'
+            },
+            investing: { 
+                voiceId: await configManager.get('voice.investing.primary', 'Stephen'), // ✅ Confirmed Generative AI voice
+                rate: '100%', 
+                pitch: 'medium',
+                volume: 'loud',
+                emphasis: 'strong'
+            },
+            education: { 
+                voiceId: await configManager.get('voice.education.primary', 'Ruth'), // ✅ Confirmed Generative AI voice (updated from Aria)
+                rate: 'medium', 
+                pitch: '+3%',
+                volume: 'loud',
+                emphasis: 'moderate'
+            },
+            tourism: { 
+                voiceId: await configManager.get('voice.tourism.primary', 'Ruth'), // ✅ Confirmed Generative AI voice
+                rate: '105%', 
+                pitch: '+8%',
+                volume: 'loud',
+                emphasis: 'strong'
+            },
+            technology: { 
+                voiceId: await configManager.get('voice.technology.primary', 'Stephen'), // ✅ Confirmed Generative AI voice
+                rate: 'medium', 
+                pitch: '+2%',
+                volume: 'loud',
+                emphasis: 'moderate'
+            },
+            health: { 
+                voiceId: await configManager.get('voice.health.primary', 'Ruth'), // ✅ Confirmed Generative AI voice
+                rate: '90%', 
+                pitch: 'medium',
+                volume: 'medium',
+                emphasis: 'moderate'
+            }
+        };
+
+        return defaultMappings[topic?.toLowerCase()] || defaultMappings.education;
+        
+    } catch (error) {
+        console.warn('Error loading voice settings, using fallback:', error.message);
+        
+        // Fallback to hardcoded values if configuration fails
+        return {
+            voiceId: audioConfig?.voice || 'Amy',
+            rate: 'medium',
+            pitch: 'medium',
+            volume: 'medium',
+            emphasis: 'moderate'
+        };
+    }
 }
 
 function generateNarrationScript(topic, durationSeconds) {
@@ -920,20 +1031,55 @@ async function getS3FileMetadata(s3Key, bucketName = null) {
             size: response.ContentLength || 0
         };
     } catch (error) {
-        console.error('Failed to get S3 metadata', { key: s3Key, error });
+        
 
         // Return estimated size if metadata retrieval fails
         return { size: 1024 * 1024 * 5 }; // 5MB estimate
     }
 }
 
-function calculateGenerationCost(durationSeconds, includeAudio) {
-    // Bedrock Nova Reel pricing (approximate)
-    const videoCostPerSecond = 0.80 / 60; // $0.80 per minute
-    const videoCost = (durationSeconds / 60) * 0.80;
-
-    // Polly pricing (approximate)
-    const audioCost = includeAudio ? (durationSeconds * 0.000004) : 0; // $4 per 1M characters
-
-    return Math.round((videoCost + audioCost) * 100) / 100; // Round to 2 decimal places
+/**
+ * Calculate generation cost using configurable rates
+ * 
+ * @param {number} durationSeconds - Video duration
+ * @param {boolean} includeAudio - Whether audio is included
+ * @param {string} audioEngine - Audio engine used
+ * @returns {Promise<number>} Total cost in USD
+ */
+async function calculateGenerationCost(durationSeconds, includeAudio, audioEngine = 'neural') {
+    try {
+        // Get configurable cost rates
+        const costRates = await configManager.get('cost.rates', {
+            video: { 'nova-reel': 0.80 }, // per minute
+            polly: { standard: 4.00, neural: 16.00, generative: 30.00 }, // per 1M characters
+            processing: 0.01
+        });
+        
+        // Video generation cost
+        const videoCostPerMinute = costRates.video['nova-reel'] || 0.80;
+        const videoCost = (durationSeconds / 60) * videoCostPerMinute;
+        
+        // Audio generation cost
+        let audioCost = 0;
+        if (includeAudio) {
+            const estimatedCharacters = Math.max(150, durationSeconds * 18.75); // ~18.75 chars per second
+            const ratePerMillion = costRates.polly[audioEngine] || costRates.polly.neural || 16.00;
+            audioCost = (estimatedCharacters / 1000000) * ratePerMillion;
+        }
+        
+        const totalCost = videoCost + audioCost;
+        
+        
+        
+        return Math.round(totalCost * 10000) / 10000; // Round to 4 decimal places
+        
+    } catch (error) {
+        
+        
+        // Fallback calculation
+        const videoCost = (durationSeconds / 60) * 0.80;
+        const audioCost = includeAudio ? (durationSeconds * 0.000004) : 0;
+        
+        return Math.round((videoCost + audioCost) * 100) / 100;
+    }
 }

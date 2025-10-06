@@ -67,17 +67,18 @@
     "@aws-sdk/client-s3": "^3.0.0",
     "@aws-sdk/client-scheduler": "^3.901.0",
     "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "@aws-sdk/client-ssm": "^3.901.0",
     "@aws-sdk/lib-dynamodb": "^3.902.0",
     "googleapis": "^128.0.0"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.0",
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.0.0",
     "husky": "^8.0.0",
-    "jest": "^29.5.0",
+    "jest": "^29.7.0",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0"
   },
